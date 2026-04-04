@@ -88,11 +88,18 @@ func TestRegisterTemplateRendering(t *testing.T) {
 }
 
 func TestIndexTemplateRendering(t *testing.T) {
-	t.Run("Index page shows admin link only for admin users", func(t *testing.T) {
+	t.Run("Index page shows admin link for admin users", func(t *testing.T) {
 		w := renderTemplate("index.html", gin.H{
 			"userID": uint(1), "userRole": "admin", "denomination": "Catholic",
 		})
 		assertContains(t, w.Body.String(), `href="/admin"`, "admin link present for admin")
+	})
+
+	t.Run("Index page shows admin link for community_manager users", func(t *testing.T) {
+		w := renderTemplate("index.html", gin.H{
+			"userID": uint(1), "userRole": "community_manager", "denomination": "Catholic",
+		})
+		assertContains(t, w.Body.String(), `href="/admin"`, "admin link present for community_manager")
 	})
 
 	t.Run("Index page hides admin link for regular users", func(t *testing.T) {
@@ -189,6 +196,13 @@ func TestChurchTemplateRendering(t *testing.T) {
 			"churchID": "1", "userID": uint(1), "userRole": "moderator",
 		})
 		assertContains(t, w.Body.String(), `id="edit-church-form"`, "edit form for moderator")
+	})
+
+	t.Run("Church page shows edit forms for church_owner role", func(t *testing.T) {
+		w := renderTemplate("church.html", gin.H{
+			"churchID": "1", "userID": uint(1), "userRole": "church_owner",
+		})
+		assertContains(t, w.Body.String(), `id="edit-church-form"`, "edit form for church_owner")
 	})
 
 	t.Run("Church page hides edit forms for regular user", func(t *testing.T) {

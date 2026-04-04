@@ -22,7 +22,7 @@
     <ul class="navbar-links" role="list">
       <li><a href="/" class="navbar-link">Home</a></li>
       <li><a href="/profile" class="navbar-link navbar-link--active" aria-current="page">Profile</a></li>
-      {{if eq .userRole "admin"}}
+      {{if or (eq .userRole "admin") (eq .userRole "community_manager")}}
       <li><a href="/admin" class="navbar-link">Admin</a></li>
       {{end}}
       <li>

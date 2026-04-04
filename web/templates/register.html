@@ -50,9 +50,9 @@
             id="password"
             name="password"
             class="form-input"
-            placeholder="At least 6 characters"
+            placeholder="At least 8 characters"
             autocomplete="new-password"
-            minlength="6"
+            minlength="8"
             required
           >
         </div>
@@ -114,8 +114,8 @@
           showError('Please enter your email address.');
           return;
         }
-        if (password.length < 6) {
-          showError('Password must be at least 6 characters.');
+        if (password.length < 8) {
+          showError('Password must be at least 8 characters.');
           return;
         }
 

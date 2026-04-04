@@ -1247,6 +1247,8 @@ async function loadAdminUsers() {
                     <select data-user-id="${u.id}" class="form-select form-select--sm role-select" aria-label="Change role">
                         <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
                         <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                        <option value="church_owner" ${u.role === 'church_owner' ? 'selected' : ''}>Church Owner</option>
+                        <option value="community_manager" ${u.role === 'community_manager' ? 'selected' : ''}>Community Manager</option>
                         <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
                     </select>
                 </td>

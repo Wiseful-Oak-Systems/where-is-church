@@ -23,7 +23,7 @@
     <ul class="navbar-links" role="list">
       <li><a href="/" class="navbar-link">Home</a></li>
       <li><a href="/profile" class="navbar-link">Profile</a></li>
-      {{if eq .userRole "admin"}}
+      {{if or (eq .userRole "admin") (eq .userRole "community_manager")}}
       <li><a href="/admin" class="navbar-link">Admin</a></li>
       {{end}}
       <li>
@@ -145,7 +145,7 @@
                     <th scope="col">Time</th>
                     <th scope="col">Language</th>
                     <th scope="col">Notes</th>
-                    {{if or (eq .userRole "admin") (eq .userRole "moderator")}}
+                    {{if or (eq .userRole "admin") (eq .userRole "community_manager") (eq .userRole "moderator") (eq .userRole "church_owner")}}
                     <th scope="col"><span class="sr-only">Actions</span></th>
                     {{end}}
                   </tr>
@@ -156,7 +156,7 @@
           </div>
 
           <!-- Admin / Moderator: add schedule -->
-          {{if or (eq .userRole "admin") (eq .userRole "moderator")}}
+          {{if or (eq .userRole "admin") (eq .userRole "community_manager") (eq .userRole "moderator") (eq .userRole "church_owner")}}
           <div class="info-card" id="add-schedule-card">
             <h2 class="info-card-title">Add Mass Schedule</h2>
             <form id="add-schedule-form" novalidate>
