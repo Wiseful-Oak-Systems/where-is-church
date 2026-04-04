@@ -464,3 +464,99 @@ button, input, select, textarea { font: inherit; }
 @media (max-width: 768px) {
   .sidebar-toggle-btn { display: flex; }
 }
+
+/* ─── Dark Mode ────────────────────────────────────────────────────────────── */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #4a7cc9;
+    --color-primary-light: #6b9ade;
+    --color-primary-dark: #1a365d;
+    --color-accent: #e8c76a;
+    --color-accent-light: #f0d98a;
+    --color-success: #48bb78;
+    --color-danger: #fc8181;
+    --color-warning: #f6e05e;
+    --color-gray-50: #1a202c;
+    --color-gray-100: #2d3748;
+    --color-gray-200: #4a5568;
+    --color-gray-300: #718096;
+    --color-gray-400: #a0aec0;
+    --color-gray-500: #cbd5e0;
+    --color-gray-600: #e2e8f0;
+    --color-gray-700: #edf2f7;
+    --color-gray-800: #f7fafc;
+    --color-white: #1a202c;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow: 0 2px 8px rgba(0,0,0,0.4);
+    --shadow-lg: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  body { background: #0f1318; color: #e2e8f0; }
+  .navbar { background: #0f2440; }
+  .sidebar { background: #1a202c; border-color: #2d3748; }
+  .church-card { background: #1a202c; border-color: #2d3748; }
+  .church-card:hover { border-color: #4a7cc9; }
+  .info-card { background: #1a202c; border-color: #2d3748; }
+  .auth-card { background: #1a202c; }
+  .auth-page { background: linear-gradient(135deg, #0a1628, #1a365d); }
+  .modal-dialog { background: #1a202c; }
+  .form-input, .form-select, .form-textarea { background: #2d3748; border-color: #4a5568; color: #e2e8f0; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: #4a7cc9; box-shadow: 0 0 0 3px rgba(74,124,201,.25); }
+  .btn-outline { border-color: #4a5568; color: #cbd5e0; }
+  .data-table th { background: #2d3748; }
+  .data-table tr:hover { background: #2d3748; }
+  .schedule-table th { background: #2d3748; }
+  .checkin-item { background: #2d3748; }
+  .suggestion-review-item { background: #1a202c; border-color: #2d3748; }
+  .stat-card { background: #1a202c; border-color: #2d3748; }
+  a { color: #6b9ade; }
+  .toast { background: #2d3748; }
+}
+
+/* ─── Skeleton Loading ─────────────────────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, var(--color-gray-100) 25%, var(--color-gray-200) 50%, var(--color-gray-100) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius);
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-card { height: 80px; margin-bottom: .5rem; }
+.skeleton-line { height: 14px; margin-bottom: .5rem; }
+.skeleton-line--short { width: 60%; }
+.skeleton-line--medium { width: 80%; }
+.skeleton-circle { width: 40px; height: 40px; border-radius: 50%; }
+
+/* ─── Button Loading State ─────────────────────────────────────────────────── */
+.btn--loading { position: relative; color: transparent !important; pointer-events: none; }
+.btn--loading::after {
+  content: ""; position: absolute; inset: 0; margin: auto;
+  width: 18px; height: 18px; border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff; border-radius: 50%; animation: spin 0.6s linear infinite;
+}
+
+/* ─── Denomination Badge Colors ────────────────────────────────────────────── */
+.denomination-badge--catholic { background: #2b6cb0; color: #fff; }
+.denomination-badge--orthodox { background: #b7791f; color: #fff; }
+.denomination-badge--protestant { background: #2f855a; color: #fff; }
+.denomination-badge--anglican { background: #6b46c1; color: #fff; }
+.denomination-badge--evangelical { background: #c05621; color: #fff; }
+.denomination-badge--other { background: var(--color-gray-500); color: #fff; }
+
+/* ─── Map Marker Colors ────────────────────────────────────────────────────── */
+.marker-catholic { background: #2b6cb0; }
+.marker-orthodox { background: #b7791f; }
+.marker-protestant { background: #2f855a; }
+.marker-anglican { background: #6b46c1; }
+.marker-evangelical { background: #c05621; }
+.marker-default { background: var(--color-primary); }
+.church-marker {
+  width: 28px; height: 28px; border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg); border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3); display: flex;
+  align-items: center; justify-content: center;
+}
+.church-marker span { transform: rotate(45deg); color: #fff; font-size: 12px; font-weight: 700; }
+
