@@ -15,7 +15,7 @@ async function api(path, options = {}) {
         headers: { 'Content-Type': 'application/json' },
         ...options,
     });
-    if (res.status === 401) { window.location.href = '/login'; return; }
+    if (res.status === 401) { window.location.href = '/login'; throw new Error('Session expired'); }
     if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Request failed'); }
     return res.json();
 }
@@ -554,43 +554,24 @@ function initSuggestionForm() {
 
     const cancelBtn = document.getElementById('suggestion-cancel');
     if (cancelBtn) cancelBtn.addEventListener('click', closeSuggestionModal);
+
+    // Wire close button and backdrop click (Bug B3, B4)
+    const closeBtn = document.getElementById('suggestion-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeSuggestionModal);
+    const backdrop = document.getElementById('suggestion-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeSuggestionModal);
+
+    // Wire FAB button to open suggestion modal (Bug B2)
+    const fab = document.getElementById('suggest-fab');
+    if (fab) fab.addEventListener('click', () => openSuggestionModal());
 }
 
 function initAuthForms() {
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = loginForm.querySelector('[name="email"]')?.value;
-            const password = loginForm.querySelector('[name="password"]')?.value;
-            const btn = loginForm.querySelector('[type="submit"]');
-            if (btn) btn.disabled = true;
-            try {
-                await login(email, password);
-            } finally {
-                if (btn) btn.disabled = false;
-            }
-        });
-    }
+    // Note: login.html and register.html have their own inline <script> handlers.
+    // This function only wires the logout button and navbar toggle, which are
+    // shared across all authenticated pages.
 
-    const registerForm = document.getElementById('register-form');
-    if (registerForm) {
-        registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = registerForm.querySelector('[name="name"]')?.value;
-            const email = registerForm.querySelector('[name="email"]')?.value;
-            const password = registerForm.querySelector('[name="password"]')?.value;
-            const denomination = registerForm.querySelector('[name="denomination"]')?.value;
-            const btn = registerForm.querySelector('[type="submit"]');
-            if (btn) btn.disabled = true;
-            try {
-                await register(name, email, password, denomination);
-            } finally {
-                if (btn) btn.disabled = false;
-            }
-        });
-    }
-
+    // Wire logout button (present on all authenticated pages)
     const logoutBtn = document.getElementById('logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', (e) => {
@@ -603,6 +584,24 @@ function initAuthForms() {
 function initLocationBtn() {
     const btn = document.getElementById('use-my-location');
     if (btn) btn.addEventListener('click', useMyLocation);
+
+    // "Set location on map" toggle (Bug B1)
+    const setBtn = document.getElementById('set-location-btn');
+    if (setBtn) {
+        let pickMode = false;
+        setBtn.addEventListener('click', () => {
+            pickMode = !pickMode;
+            setBtn.setAttribute('aria-pressed', pickMode ? 'true' : 'false');
+            setBtn.classList.toggle('btn-primary', pickMode);
+            setBtn.classList.toggle('btn-outline', !pickMode);
+            if (pickMode) {
+                showToast('Click on the map to set your location.', 'info');
+                if (map) map.getContainer().style.cursor = 'crosshair';
+            } else {
+                if (map) map.getContainer().style.cursor = '';
+            }
+        });
+    }
 }
 
 function initSidebarToggle() {
@@ -615,12 +614,16 @@ function initSidebarToggle() {
         overlay.classList.remove('open');
     });
 
-    // Mobile nav toggle
+    // Mobile nav toggle (fix B14: update aria-expanded)
     const navToggle = document.getElementById('nav-toggle');
     if (navToggle) {
         navToggle.addEventListener('click', () => {
             const links = document.querySelector('.navbar-links');
-            if (links) links.classList.toggle('open');
+            if (links) {
+                links.classList.toggle('open');
+                const expanded = links.classList.contains('open');
+                navToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            }
         });
     }
 }
@@ -1195,6 +1198,8 @@ async function initAdminPage() {
     if (refreshUsers) refreshUsers.addEventListener('click', loadAdminUsers);
     const refreshChurches = document.getElementById('refresh-churches-btn');
     if (refreshChurches) refreshChurches.addEventListener('click', loadAdminChurches);
+    const churchDenomFilter = document.getElementById('church-denom-filter');
+    if (churchDenomFilter) churchDenomFilter.addEventListener('change', loadAdminChurches);
     const refreshSuggs = document.getElementById('refresh-suggestions-btn');
     if (refreshSuggs) refreshSuggs.addEventListener('click', loadAdminSuggestions);
 
@@ -1283,7 +1288,9 @@ async function loadAdminChurches() {
     if (wrapper) wrapper.hidden = true;
 
     try {
-        const churches = await api('/churches');
+        const denomFilter = document.getElementById('church-denom-filter')?.value || '';
+        const qs = denomFilter ? `?denomination=${encodeURIComponent(denomFilter)}` : '';
+        const churches = await api('/churches' + qs);
         if (loading) loading.hidden = true;
         if (wrapper) wrapper.hidden = false;
 
