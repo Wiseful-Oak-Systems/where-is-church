@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard &mdash; Where is Church?</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="app-page"
+      data-user-id="{{.userID}}"
+      data-user-role="{{.userRole}}">
+
+  <!-- Navigation -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="navbar-brand">
+      <a href="/" class="navbar-logo">
+        <span aria-hidden="true">&#9962;</span> Where is Church?
+      </a>
+    </div>
+    <ul class="navbar-links" role="list">
+      <li><a href="/" class="navbar-link">Home</a></li>
+      <li><a href="/profile" class="navbar-link">Profile</a></li>
+      <li><a href="/admin" class="navbar-link navbar-link--active" aria-current="page">Admin</a></li>
+      <li>
+        <button id="logout-btn" class="btn btn-outline btn-sm" type="button">Logout</button>
+      </li>
+    </ul>
+    <button class="navbar-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <div class="page-container" id="admin-section">
+    <h1 class="page-title">Admin Dashboard</h1>
+
+    <!-- Global status messages -->
+    <div id="admin-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+    <div id="admin-success" class="form-success" role="status" aria-live="polite" hidden></div>
+
+    <!-- Tab navigation -->
+    <div class="tabs" role="tablist" aria-label="Admin sections">
+      <button
+        class="tab tab--active"
+        id="tab-users"
+        role="tab"
+        aria-selected="true"
+        aria-controls="panel-users"
+        type="button"
+      >Users</button>
+      <button
+        class="tab"
+        id="tab-churches"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-churches"
+        type="button"
+      >Churches</button>
+      <button
+        class="tab"
+        id="tab-suggestions"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-suggestions"
+        type="button"
+      >
+        Suggestions
+        <span id="pending-badge" class="badge badge--warning" hidden></span>
+      </button>
+    </div>
+
+    <!-- Users panel -->
+    <section
+      id="panel-users"
+      role="tabpanel"
+      aria-labelledby="tab-users"
+      class="tab-panel"
+    >
+      <div class="panel-toolbar">
+        <h2 class="panel-title">Registered Users</h2>
+        <button id="refresh-users-btn" class="btn btn-outline btn-sm" type="button">Refresh</button>
+      </div>
+
+      <div id="users-loading" class="loading-state" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Loading users&hellip;</p>
+      </div>
+
+      <div class="table-wrapper" id="users-table-wrapper" hidden>
+        <table class="data-table" id="users-table" aria-label="Registered users">
+          <caption class="sr-only">List of registered users with role management</caption>
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Name</th>
+              <th scope="col">Email</th>
+              <th scope="col">Denomination</th>
+              <th scope="col">Role</th>
+              <th scope="col">Joined</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+      <p id="users-empty" class="empty-state" hidden>No users found.</p>
+    </section>
+
+    <!-- Churches panel -->
+    <section
+      id="panel-churches"
+      role="tabpanel"
+      aria-labelledby="tab-churches"
+      class="tab-panel"
+      hidden
+    >
+      <div class="panel-toolbar">
+        <h2 class="panel-title">All Churches</h2>
+        <div class="panel-toolbar-right">
+          <select id="church-denom-filter" class="form-select form-select--sm">
+            <option value="">All denominations</option>
+            <option value="Catholic">Catholic</option>
+            <option value="Orthodox">Orthodox</option>
+            <option value="Protestant">Protestant</option>
+            <option value="Anglican">Anglican</option>
+            <option value="Evangelical">Evangelical</option>
+            <option value="Other">Other</option>
+          </select>
+          <button id="refresh-churches-btn" class="btn btn-outline btn-sm" type="button">Refresh</button>
+        </div>
+      </div>
+
+      <div id="churches-loading" class="loading-state" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Loading churches&hellip;</p>
+      </div>
+
+      <div class="table-wrapper" id="churches-table-wrapper" hidden>
+        <table class="data-table" id="churches-table" aria-label="All churches">
+          <caption class="sr-only">Churches with verification and delete actions</caption>
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Name</th>
+              <th scope="col">Denomination</th>
+              <th scope="col">Address</th>
+              <th scope="col">Verified</th>
+              <th scope="col">Added</th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="churches-tbody"></tbody>
+        </table>
+      </div>
+      <p id="churches-empty" class="empty-state" hidden>No churches found.</p>
+    </section>
+
+    <!-- Suggestions panel -->
+    <section
+      id="panel-suggestions"
+      role="tabpanel"
+      aria-labelledby="tab-suggestions"
+      class="tab-panel"
+      hidden
+    >
+      <div class="panel-toolbar">
+        <h2 class="panel-title">Suggestions</h2>
+        <div class="panel-toolbar-right">
+          <select id="sugg-status-filter" class="form-select form-select--sm" aria-label="Filter by status">
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="">All</option>
+          </select>
+          <button id="refresh-suggestions-btn" class="btn btn-outline btn-sm" type="button">Refresh</button>
+        </div>
+      </div>
+
+      <div id="suggestions-loading" class="loading-state" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Loading suggestions&hellip;</p>
+      </div>
+
+      <div id="suggestions-list-wrapper" hidden>
+        <ul id="suggestions-list" class="suggestion-review-list" aria-label="Suggestions list"></ul>
+        <p id="suggestions-empty" class="empty-state" hidden>No suggestions found.</p>
+      </div>
+    </section>
+  </div>
+
+  <!-- Confirm delete dialog -->
+  <div id="confirm-modal" class="modal" role="dialog" aria-modal="true"
+       aria-labelledby="confirm-modal-title" hidden>
+    <div class="modal-backdrop" id="confirm-backdrop"></div>
+    <div class="modal-dialog modal-dialog--sm">
+      <header class="modal-header">
+        <h2 id="confirm-modal-title" class="modal-title">Confirm action</h2>
+      </header>
+      <div class="modal-body">
+        <p id="confirm-message"></p>
+      </div>
+      <footer class="modal-footer">
+        <button type="button" class="btn btn-outline" id="confirm-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-ok">Delete</button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Suggestion review note dialog -->
+  <div id="review-modal" class="modal" role="dialog" aria-modal="true"
+       aria-labelledby="review-modal-title" hidden>
+    <div class="modal-backdrop" id="review-backdrop"></div>
+    <div class="modal-dialog">
+      <header class="modal-header">
+        <h2 id="review-modal-title" class="modal-title">Review Suggestion</h2>
+        <button type="button" class="modal-close" id="review-modal-close" aria-label="Close">&#x2715;</button>
+      </header>
+      <form id="review-form" class="modal-body" novalidate>
+        <input type="hidden" id="review-suggestion-id">
+        <input type="hidden" id="review-action">
+        <div class="form-group">
+          <label for="review-note" class="form-label">Review note <span class="form-hint">(optional)</span></label>
+          <textarea id="review-note" class="form-textarea" rows="3"
+                    placeholder="Add a note for the submitter&hellip;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="review-cancel">Cancel</button>
+          <button type="submit" id="review-submit" class="btn btn-primary">Confirm</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- User role row template -->
+  <template id="user-row-template">
+    <tr>
+      <td class="user-id" data-label="ID"></td>
+      <td class="user-name" data-label="Name"></td>
+      <td class="user-email" data-label="Email"></td>
+      <td class="user-denomination" data-label="Denomination"></td>
+      <td class="user-role-cell" data-label="Role">
+        <select class="form-select form-select--sm role-select" aria-label="Change user role">
+          <option value="user">User</option>
+          <option value="moderator">Moderator</option>
+          <option value="admin">Admin</option>
+        </select>
+      </td>
+      <td class="user-joined" data-label="Joined"></td>
+      <td class="user-actions" data-label="Actions">
+        <button type="button" class="btn btn-sm btn-primary save-role-btn">Save role</button>
+      </td>
+    </tr>
+  </template>
+
+  <!-- Church row template -->
+  <template id="church-row-template">
+    <tr>
+      <td class="church-id" data-label="ID"></td>
+      <td class="church-name" data-label="Name">
+        <a href="#" class="church-link" target="_blank"></a>
+      </td>
+      <td class="church-denomination" data-label="Denomination">
+        <span class="denomination-badge"></span>
+      </td>
+      <td class="church-address" data-label="Address"></td>
+      <td class="church-verified" data-label="Verified"></td>
+      <td class="church-added" data-label="Added"></td>
+      <td class="church-actions" data-label="Actions">
+        <button type="button" class="btn btn-sm btn-outline verify-church-btn">Verify</button>
+        <button type="button" class="btn btn-sm btn-danger delete-church-btn">Delete</button>
+      </td>
+    </tr>
+  </template>
+
+  <!-- Suggestion item template -->
+  <template id="suggestion-item-template">
+    <li class="suggestion-review-item">
+      <div class="suggestion-review-meta">
+        <span class="suggestion-type-badge"></span>
+        <span class="suggestion-status-badge"></span>
+        <span class="suggestion-date"></span>
+      </div>
+      <p class="suggestion-review-user"></p>
+      <p class="suggestion-review-church"></p>
+      <blockquote class="suggestion-review-content"></blockquote>
+      <p class="suggestion-review-note" hidden></p>
+      <div class="suggestion-review-actions">
+        <button type="button" class="btn btn-sm btn-primary approve-btn">Approve</button>
+        <button type="button" class="btn btn-sm btn-danger reject-btn">Reject</button>
+      </div>
+    </li>
+  </template>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin="anonymous"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

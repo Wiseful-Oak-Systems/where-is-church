@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Where is Church?</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="app-page"
+      data-user-id="{{.userID}}"
+      data-user-role="{{.userRole}}"
+      data-denomination="{{.denomination}}">
+
+  <!-- Navigation -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="navbar-brand">
+      <a href="/" class="navbar-logo">
+        <span aria-hidden="true">&#9962;</span> Where is Church?
+      </a>
+    </div>
+    <ul class="navbar-links" role="list">
+      <li><a href="/" class="navbar-link navbar-link--active" aria-current="page">Home</a></li>
+      <li><a href="/profile" class="navbar-link">Profile</a></li>
+      {{if eq .userRole "admin"}}
+      <li><a href="/admin" class="navbar-link">Admin</a></li>
+      {{end}}
+      <li>
+        <button id="logout-btn" class="btn btn-outline btn-sm" type="button">Logout</button>
+      </li>
+    </ul>
+    <button class="navbar-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <!-- Mobile sidebar toggle -->
+  <button class="sidebar-toggle-btn" id="sidebar-toggle" aria-label="Toggle search panel">&#9776;</button>
+  <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+  <!-- Main layout -->
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" aria-label="Church search">
+
+      <div class="sidebar-section">
+        <h2 class="sidebar-heading">Find a Church</h2>
+
+        <!-- Denomination filter -->
+        <div class="form-group">
+          <label for="denomination-filter" class="form-label">Denomination</label>
+          <select id="denomination-filter" class="form-select">
+            <option value="All">All denominations</option>
+            <option value="Catholic">Catholic</option>
+            <option value="Orthodox">Orthodox</option>
+            <option value="Protestant">Protestant</option>
+            <option value="Anglican">Anglican</option>
+            <option value="Evangelical">Evangelical</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <!-- Radius slider -->
+        <div class="form-group">
+          <label for="radius-slider" class="form-label">
+            Search radius: <strong id="radius-label">10</strong>&thinsp;km
+          </label>
+          <input
+            type="range"
+            id="radius-slider"
+            class="form-range"
+            min="1"
+            max="50"
+            value="10"
+            step="1"
+            aria-valuemin="1"
+            aria-valuemax="50"
+            aria-valuenow="10"
+          >
+        </div>
+
+        <!-- Location controls -->
+        <div class="search-actions">
+          <button id="use-my-location" class="btn btn-primary btn-block" type="button">
+            <span aria-hidden="true">&#x25CE;</span> Use my location
+          </button>
+          <button id="set-location-btn" class="btn btn-outline btn-block" type="button"
+                  aria-pressed="false">
+            <span aria-hidden="true">&#x1F4CD;</span> Set location on map
+          </button>
+        </div>
+
+        <div id="location-status" class="location-status" aria-live="polite"></div>
+      </div>
+
+      <!-- Results -->
+      <div class="sidebar-section sidebar-section--results">
+        <div class="results-header">
+          <h2 class="sidebar-heading">Results</h2>
+          <span id="results-count" class="results-count" aria-live="polite"></span>
+        </div>
+        <div id="church-list" class="church-list" role="list" aria-label="Nearby churches">
+          <p class="church-list-empty">Use your location or click the map to search nearby churches.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Map -->
+    <main class="map-container" id="map-container">
+      <div id="map" aria-label="Church map" tabindex="0"></div>
+    </main>
+  </div>
+
+  <!-- Floating suggest button (mobile) -->
+  <button
+    id="suggest-fab"
+    class="fab"
+    type="button"
+    aria-label="Suggest a new church"
+    title="Suggest a new church"
+  >+</button>
+
+  <!-- Suggestion modal -->
+  <div id="suggestion-modal" class="modal" role="dialog" aria-modal="true"
+       aria-labelledby="suggestion-modal-title" hidden>
+    <div class="modal-backdrop" id="suggestion-backdrop"></div>
+    <div class="modal-dialog">
+      <header class="modal-header">
+        <h2 id="suggestion-modal-title" class="modal-title">Suggest a Church</h2>
+        <button type="button" class="modal-close" id="suggestion-close" aria-label="Close">&#x2715;</button>
+      </header>
+
+      <form id="suggestion-form" class="modal-body" novalidate>
+        <div class="form-group">
+          <label for="suggestion-type" class="form-label">Type</label>
+          <select id="suggestion-type" name="type" class="form-select" required>
+            <option value="new_church">New church</option>
+            <option value="edit_church">Edit existing church</option>
+            <option value="schedule">Mass schedule update</option>
+            <option value="general">General feedback</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="church-id-group">
+          <label for="suggestion-church-id" class="form-label">
+            Church ID <span class="form-hint">(optional &mdash; leave blank for new church)</span>
+          </label>
+          <input
+            type="number"
+            id="suggestion-church-id"
+            name="church_id"
+            class="form-input"
+            placeholder="e.g. 42"
+            min="1"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="suggestion-content" class="form-label">Details</label>
+          <textarea
+            id="suggestion-content"
+            name="content"
+            class="form-textarea"
+            rows="5"
+            placeholder="Describe the church, location, schedule, or correction&hellip;"
+            required
+          ></textarea>
+        </div>
+
+        <div id="suggestion-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+        <div id="suggestion-success" class="form-success" role="status" aria-live="polite" hidden></div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="suggestion-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit suggestion</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Church card template (cloned by JS) -->
+  <template id="church-card-template">
+    <article class="church-card" role="listitem">
+      <div class="church-card-body">
+        <h3 class="church-card-name"></h3>
+        <span class="denomination-badge"></span>
+        <p class="church-card-address"></p>
+        <div class="church-card-meta">
+          <span class="church-card-distance"></span>
+          <span class="church-card-masses"></span>
+        </div>
+      </div>
+      <div class="church-card-actions">
+        <a href="#" class="btn btn-sm btn-outline church-card-view">View</a>
+      </div>
+    </article>
+  </template>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV/XN/WLs=" crossorigin="anonymous"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

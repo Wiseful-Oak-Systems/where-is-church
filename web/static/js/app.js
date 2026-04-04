@@ -1,0 +1,1294 @@
+// Church Finder App - Main JavaScript
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Global state
+let map = null;
+let markerLayer = null;
+let currentLocation = null;
+let selectedChurchId = null;
+
+// ─── API Helper ───────────────────────────────────────────────────────────────
+
+async function api(path, options = {}) {
+    const res = await fetch('/api' + path, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+    });
+    if (res.status === 401) { window.location.href = '/login'; return; }
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Request failed'); }
+    return res.json();
+}
+
+// ─── Toast Notifications ──────────────────────────────────────────────────────
+
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container') || createToastContainer();
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.setAttribute('role', 'alert');
+
+    const icons = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
+    toast.innerHTML = `
+        <span class="toast__icon">${icons[type] || icons.info}</span>
+        <span class="toast__message">${escapeHtml(message)}</span>
+        <button class="toast__close" aria-label="Close">&times;</button>
+    `;
+
+    toast.querySelector('.toast__close').addEventListener('click', () => dismissToast(toast));
+    container.appendChild(toast);
+
+    // Trigger enter animation
+    requestAnimationFrame(() => toast.classList.add('toast--visible'));
+
+    // Auto-dismiss after 4 seconds
+    setTimeout(() => dismissToast(toast), 4000);
+}
+
+function dismissToast(toast) {
+    toast.classList.remove('toast--visible');
+    toast.classList.add('toast--hiding');
+    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+}
+
+function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    container.setAttribute('aria-live', 'polite');
+    document.body.appendChild(container);
+    return container;
+}
+
+// ─── Auth Functions ───────────────────────────────────────────────────────────
+
+async function register(name, email, password, denomination) {
+    try {
+        await api('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({ name, email, password, denomination }),
+        });
+        showToast('Account created! Welcome.', 'success');
+        window.location.href = '/';
+    } catch (err) {
+        showToast(err.message, 'error');
+        throw err;
+    }
+}
+
+async function login(email, password) {
+    try {
+        await api('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password }),
+        });
+        showToast('Welcome back!', 'success');
+        window.location.href = '/';
+    } catch (err) {
+        showToast(err.message, 'error');
+        throw err;
+    }
+}
+
+async function logout() {
+    try {
+        await api('/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+    } catch (err) {
+        showToast(err.message, 'error');
+    }
+}
+
+async function getMe() {
+    try {
+        return await api('/auth/me');
+    } catch (err) {
+        return null;
+    }
+}
+
+async function updateProfile(name, denomination, latitude, longitude) {
+    try {
+        const data = await api('/auth/profile', {
+            method: 'PUT',
+            body: JSON.stringify({ name, denomination, latitude, longitude }),
+        });
+        showToast('Profile updated.', 'success');
+        return data;
+    } catch (err) {
+        showToast(err.message, 'error');
+        throw err;
+    }
+}
+
+// ─── Map Initialization ───────────────────────────────────────────────────────
+
+function initMap(centerLat = 20, centerLng = 0, zoom = 2) {
+    if (map) return;
+
+    map = L.map('map', {
+        center: [centerLat, centerLng],
+        zoom,
+        zoomControl: true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+    }).addTo(map);
+
+    markerLayer = L.layerGroup().addTo(map);
+
+    // Click on map to set custom location
+    map.on('click', (e) => {
+        setCustomLocation(e.latlng.lat, e.latlng.lng);
+    });
+}
+
+function setCustomLocation(lat, lng) {
+    currentLocation = { lat, lng };
+    updateLocationMarker(lat, lng);
+    triggerSearch();
+    showToast('Custom location set. Searching nearby churches...', 'info');
+}
+
+let locationMarker = null;
+
+function updateLocationMarker(lat, lng) {
+    if (locationMarker) {
+        locationMarker.setLatLng([lat, lng]);
+    } else {
+        const icon = L.divIcon({
+            className: 'location-marker',
+            html: '<div class="location-marker__pulse"></div><div class="location-marker__dot"></div>',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+        });
+        locationMarker = L.marker([lat, lng], { icon, zIndexOffset: 1000 })
+            .addTo(map)
+            .bindTooltip('Your location', { permanent: false });
+    }
+}
+
+function useMyLocation() {
+    if (!navigator.geolocation) {
+        showToast('Geolocation is not supported by your browser.', 'error');
+        return;
+    }
+
+    showToast('Detecting your location...', 'info');
+
+    navigator.geolocation.getCurrentPosition(
+        (pos) => {
+            const { latitude: lat, longitude: lng } = pos.coords;
+            currentLocation = { lat, lng };
+            map.setView([lat, lng], 13);
+            updateLocationMarker(lat, lng);
+            triggerSearch();
+            showToast('Location found!', 'success');
+        },
+        (err) => {
+            const messages = {
+                1: 'Location access denied. Click on the map to set a location.',
+                2: 'Location unavailable. Try again or click on the map.',
+                3: 'Location request timed out.',
+            };
+            showToast(messages[err.code] || 'Could not get your location.', 'error');
+        },
+        { timeout: 10000, maximumAge: 60000 }
+    );
+}
+
+// ─── Church Search ────────────────────────────────────────────────────────────
+
+async function searchChurches(lat, lng, radius, denomination) {
+    clearMarkers();
+
+    const params = new URLSearchParams({ lat, lng, radius });
+    if (denomination && denomination !== 'all') {
+        params.set('denomination', denomination);
+    }
+
+    try {
+        const churches = await api(`/churches/search?${params}`);
+        if (!churches || churches.length === 0) {
+            showToast('No churches found in this area.', 'info');
+            return [];
+        }
+        churches.forEach((church) => placeChurchMarker(church));
+        showToast(`Found ${churches.length} church${churches.length !== 1 ? 'es' : ''}.`, 'success');
+        return churches;
+    } catch (err) {
+        showToast('Search failed: ' + err.message, 'error');
+        return [];
+    }
+}
+
+function triggerSearch() {
+    if (!currentLocation) return;
+
+    const radius = getRadiusValue();
+    const denomination = getDenominationFilter();
+    searchChurches(currentLocation.lat, currentLocation.lng, radius, denomination);
+}
+
+function getRadiusValue() {
+    const slider = document.getElementById('radius-slider');
+    return slider ? parseInt(slider.value, 10) : 10;
+}
+
+function getDenominationFilter() {
+    const select = document.getElementById('denomination-filter');
+    return select ? select.value : 'all';
+}
+
+// ─── Church Markers ───────────────────────────────────────────────────────────
+
+function clearMarkers() {
+    if (markerLayer) markerLayer.clearLayers();
+}
+
+function placeChurchMarker(church) {
+    if (!markerLayer) return;
+
+    const icon = L.divIcon({
+        className: 'church-marker',
+        html: `<div class="church-marker__icon" title="${escapeHtml(church.name)}">&#9962;</div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32],
+        popupAnchor: [0, -34],
+    });
+
+    const distanceText = church.distance != null
+        ? `${(church.distance / 1000).toFixed(1)} km away`
+        : '';
+
+    const popupContent = `
+        <div class="church-popup">
+            <h3 class="church-popup__name">${escapeHtml(church.name)}</h3>
+            <p class="church-popup__denomination">${escapeHtml(church.denomination || 'Unknown denomination')}</p>
+            ${distanceText ? `<p class="church-popup__distance">${escapeHtml(distanceText)}</p>` : ''}
+            ${church.address ? `<p class="church-popup__address">${escapeHtml(church.address)}</p>` : ''}
+            <div class="church-popup__actions">
+                <button class="btn btn--primary btn--sm" onclick="loadChurchDetail('${church.id}')">View Details</button>
+                <button class="btn btn--secondary btn--sm" onclick="checkIn('${church.id}')">Check In</button>
+            </div>
+        </div>
+    `;
+
+    const marker = L.marker([church.latitude, church.longitude], { icon })
+        .bindPopup(popupContent, { maxWidth: 280 })
+        .addTo(markerLayer);
+
+    marker.on('click', () => {
+        selectedChurchId = church.id;
+    });
+}
+
+// ─── Church Detail ────────────────────────────────────────────────────────────
+
+async function loadChurchDetail(id) {
+    selectedChurchId = id;
+    const panel = document.getElementById('church-detail-panel');
+    if (panel) {
+        panel.innerHTML = '<div class="loading-spinner" aria-label="Loading..."></div>';
+        openSidebar();
+    }
+
+    try {
+        const church = await api(`/churches/${id}`);
+        renderChurchDetail(church);
+    } catch (err) {
+        showToast('Could not load church details: ' + err.message, 'error');
+        if (panel) panel.innerHTML = '<p class="error-text">Failed to load church details.</p>';
+    }
+}
+
+function renderChurchDetail(church) {
+    const panel = document.getElementById('church-detail-panel');
+    if (!panel) return;
+
+    const schedules = Array.isArray(church.schedules) && church.schedules.length > 0
+        ? church.schedules.map((s) => `
+            <li class="schedule-item">
+                <strong>${DAY_NAMES[s.day_of_week] || 'Unknown'}</strong>
+                ${escapeHtml(s.start_time)}
+                ${s.language ? `<span class="schedule-item__lang">(${escapeHtml(s.language)})</span>` : ''}
+                ${s.notes ? `<span class="schedule-item__notes"> — ${escapeHtml(s.notes)}</span>` : ''}
+            </li>
+        `).join('')
+        : '<li class="schedule-item schedule-item--empty">No schedule listed.</li>';
+
+    panel.innerHTML = `
+        <div class="church-detail">
+            <button class="church-detail__close btn btn--ghost" onclick="closeSidebar()" aria-label="Close">&times;</button>
+            <h2 class="church-detail__name">${escapeHtml(church.name)}</h2>
+            <p class="church-detail__denomination badge">${escapeHtml(church.denomination || 'Unknown')}</p>
+
+            ${church.address ? `
+                <div class="church-detail__section">
+                    <h4>Address</h4>
+                    <p>${escapeHtml(church.address)}</p>
+                </div>
+            ` : ''}
+
+            ${church.phone || church.website ? `
+                <div class="church-detail__section">
+                    <h4>Contact</h4>
+                    ${church.phone ? `<p><a href="tel:${escapeHtml(church.phone)}">${escapeHtml(church.phone)}</a></p>` : ''}
+                    ${church.website ? `<p><a href="${escapeHtml(church.website)}" target="_blank" rel="noopener noreferrer">${escapeHtml(church.website)}</a></p>` : ''}
+                </div>
+            ` : ''}
+
+            ${church.description ? `
+                <div class="church-detail__section">
+                    <h4>About</h4>
+                    <p>${escapeHtml(church.description)}</p>
+                </div>
+            ` : ''}
+
+            <div class="church-detail__section">
+                <h4>Service Schedule</h4>
+                <ul class="schedule-list">${schedules}</ul>
+            </div>
+
+            <div class="church-detail__actions">
+                <button class="btn btn--primary" onclick="checkIn('${church.id}')">
+                    Check In Here
+                </button>
+                <button class="btn btn--secondary" onclick="openSuggestionModal('${church.id}')">
+                    Suggest a Change
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// ─── Check-In ─────────────────────────────────────────────────────────────────
+
+async function checkIn(churchId, notes = '') {
+    try {
+        await api('/checkins', {
+            method: 'POST',
+            body: JSON.stringify({ church_id: churchId, notes }),
+        });
+        showCheckInAnimation();
+        showToast('You have checked in! God bless you.', 'success');
+    } catch (err) {
+        showToast('Check-in failed: ' + err.message, 'error');
+    }
+}
+
+function showCheckInAnimation() {
+    const overlay = document.createElement('div');
+    overlay.className = 'checkin-animation';
+    overlay.innerHTML = `
+        <div class="checkin-animation__content">
+            <div class="checkin-animation__icon">&#9962;</div>
+            <p class="checkin-animation__text">Checked In!</p>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    requestAnimationFrame(() => overlay.classList.add('checkin-animation--visible'));
+
+    setTimeout(() => {
+        overlay.classList.remove('checkin-animation--visible');
+        overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+    }, 1800);
+}
+
+async function getMyCheckins() {
+    try {
+        return await api('/checkins/mine');
+    } catch (err) {
+        showToast('Could not load check-ins: ' + err.message, 'error');
+        return [];
+    }
+}
+
+async function getCheckinStats() {
+    try {
+        return await api('/checkins/stats');
+    } catch (err) {
+        showToast('Could not load stats.', 'error');
+        return null;
+    }
+}
+
+// ─── Suggestions ──────────────────────────────────────────────────────────────
+
+function openSuggestionModal(churchId) {
+    selectedChurchId = churchId;
+    const modal = document.getElementById('suggestion-modal');
+    if (modal) {
+        modal.removeAttribute('hidden');
+        modal.setAttribute('aria-modal', 'true');
+        const firstInput = modal.querySelector('select, input, textarea');
+        if (firstInput) firstInput.focus();
+    }
+}
+
+function closeSuggestionModal() {
+    const modal = document.getElementById('suggestion-modal');
+    if (modal) modal.setAttribute('hidden', '');
+}
+
+async function submitSuggestion(churchId, type, content) {
+    try {
+        await api('/suggestions', {
+            method: 'POST',
+            body: JSON.stringify({
+                church_id: churchId || selectedChurchId,
+                type,
+                content,
+            }),
+        });
+        showToast('Suggestion submitted. Thank you!', 'success');
+        closeSuggestionModal();
+    } catch (err) {
+        showToast('Could not submit suggestion: ' + err.message, 'error');
+    }
+}
+
+async function getMySuggestions() {
+    try {
+        return await api('/suggestions/mine');
+    } catch (err) {
+        showToast('Could not load suggestions.', 'error');
+        return [];
+    }
+}
+
+// ─── Sidebar Toggle ───────────────────────────────────────────────────────────
+
+function openSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.add('sidebar--open');
+        sidebar.removeAttribute('hidden');
+    }
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.remove('sidebar--open');
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('sidebar--open');
+    }
+}
+
+// ─── UI Control Helpers ───────────────────────────────────────────────────────
+
+function initRadiusSlider() {
+    const slider = document.getElementById('radius-slider');
+    const label = document.getElementById('radius-label');
+    if (!slider) return;
+
+    slider.addEventListener('input', () => {
+        if (label) label.textContent = `${slider.value} km`;
+    });
+
+    slider.addEventListener('change', () => {
+        triggerSearch();
+    });
+
+    if (label) label.textContent = `${slider.value} km`;
+}
+
+function initDenominationFilter() {
+    const select = document.getElementById('denomination-filter');
+    if (!select) return;
+    select.addEventListener('change', () => triggerSearch());
+}
+
+function initSuggestionForm() {
+    const form = document.getElementById('suggestion-form');
+    if (!form) return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const type = form.querySelector('[name="type"]')?.value;
+        const content = form.querySelector('[name="content"]')?.value;
+        if (!type || !content) {
+            showToast('Please fill in all fields.', 'warning');
+            return;
+        }
+        await submitSuggestion(selectedChurchId, type, content);
+        form.reset();
+    });
+
+    const cancelBtn = document.getElementById('suggestion-cancel');
+    if (cancelBtn) cancelBtn.addEventListener('click', closeSuggestionModal);
+}
+
+function initAuthForms() {
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) {
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = loginForm.querySelector('[name="email"]')?.value;
+            const password = loginForm.querySelector('[name="password"]')?.value;
+            const btn = loginForm.querySelector('[type="submit"]');
+            if (btn) btn.disabled = true;
+            try {
+                await login(email, password);
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
+    }
+
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = registerForm.querySelector('[name="name"]')?.value;
+            const email = registerForm.querySelector('[name="email"]')?.value;
+            const password = registerForm.querySelector('[name="password"]')?.value;
+            const denomination = registerForm.querySelector('[name="denomination"]')?.value;
+            const btn = registerForm.querySelector('[type="submit"]');
+            if (btn) btn.disabled = true;
+            try {
+                await register(name, email, password, denomination);
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        });
+    }
+
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            logout();
+        });
+    }
+}
+
+function initLocationBtn() {
+    const btn = document.getElementById('use-my-location');
+    if (btn) btn.addEventListener('click', useMyLocation);
+}
+
+function initSidebarToggle() {
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    if (toggleBtn) toggleBtn.addEventListener('click', toggleSidebarWithOverlay);
+
+    const overlay = document.getElementById('sidebar-overlay');
+    if (overlay) overlay.addEventListener('click', () => {
+        closeSidebar();
+        overlay.classList.remove('open');
+    });
+
+    // Mobile nav toggle
+    const navToggle = document.getElementById('nav-toggle');
+    if (navToggle) {
+        navToggle.addEventListener('click', () => {
+            const links = document.querySelector('.navbar-links');
+            if (links) links.classList.toggle('open');
+        });
+    }
+}
+
+function toggleSidebarWithOverlay() {
+    toggleSidebar();
+    const overlay = document.getElementById('sidebar-overlay');
+    const sidebar = document.getElementById('sidebar');
+    if (overlay && sidebar) {
+        overlay.classList.toggle('open', sidebar.classList.contains('sidebar--open'));
+    }
+}
+
+// ─── Utility ──────────────────────────────────────────────────────────────────
+
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// ─── App Initialization ───────────────────────────────────────────────────────
+
+async function init() {
+    // Initialize map if the map element exists
+    const mapEl = document.getElementById('map');
+    if (mapEl) {
+        initMap();
+        initRadiusSlider();
+        initDenominationFilter();
+        initLocationBtn();
+        initSidebarToggle();
+        initSuggestionForm();
+
+        // Try to get user's location automatically on load
+        useMyLocation();
+    }
+
+    // Initialize auth forms
+    initAuthForms();
+
+    // Church detail page
+    const churchId = document.body.dataset.churchId;
+    if (churchId) {
+        initChurchDetailPage(churchId);
+    }
+
+    // Profile page
+    const profileSection = document.getElementById('profile-section');
+    if (profileSection) {
+        initProfilePage();
+    }
+
+    // Admin page
+    const adminSection = document.getElementById('admin-section');
+    if (adminSection) {
+        initAdminPage();
+    }
+}
+
+// ─── Church Detail Page ──────────────────────────────────────────────────────
+
+async function initChurchDetailPage(churchId) {
+    const loading = document.getElementById('church-loading');
+    const error = document.getElementById('church-error');
+    const content = document.getElementById('church-content');
+
+    try {
+        const church = await api('/churches/' + churchId);
+        if (loading) loading.hidden = true;
+        if (content) content.hidden = false;
+
+        // Populate fields
+        setText('church-name', church.name);
+        setText('church-denomination', church.denomination);
+        setText('church-address', church.address);
+
+        const verified = document.getElementById('church-verified');
+        if (verified && church.verified) verified.hidden = false;
+
+        if (church.phone) {
+            show('phone-row');
+            const phoneEl = document.getElementById('church-phone');
+            if (phoneEl) { phoneEl.textContent = church.phone; phoneEl.href = 'tel:' + church.phone; }
+        }
+        if (church.website) {
+            show('website-row');
+            const webEl = document.getElementById('church-website');
+            if (webEl) { webEl.textContent = church.website; webEl.href = church.website; }
+        }
+        if (church.description) {
+            show('description-row');
+            setText('church-description', church.description);
+        }
+
+        // Init mini map
+        const mapEl = document.getElementById('church-map');
+        if (mapEl && church.latitude && church.longitude) {
+            const miniMap = L.map(mapEl).setView([church.latitude, church.longitude], 15);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(miniMap);
+            L.marker([church.latitude, church.longitude]).addTo(miniMap);
+        }
+
+        // Schedule
+        renderSchedule(church.schedules || []);
+
+        // Check-ins
+        loadChurchCheckins(churchId);
+
+        // Check-in buttons
+        const checkinBtns = document.querySelectorAll('#checkin-btn, #checkin-btn-2');
+        checkinBtns.forEach(btn => {
+            btn.addEventListener('click', () => doCheckin(churchId));
+        });
+
+        // Add schedule form
+        const schedForm = document.getElementById('add-schedule-form');
+        if (schedForm) {
+            schedForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    await api('/churches/' + churchId + '/schedules', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            day_of_week: parseInt(document.getElementById('sched-day').value),
+                            start_time: document.getElementById('sched-time').value,
+                            language: document.getElementById('sched-lang').value || 'English',
+                            notes: document.getElementById('sched-notes').value,
+                        }),
+                    });
+                    showToast('Schedule added!', 'success');
+                    const updated = await api('/churches/' + churchId);
+                    renderSchedule(updated.schedules || []);
+                    schedForm.reset();
+                } catch (err) {
+                    showFormError('add-sched-error', err.message);
+                }
+            });
+        }
+
+        // Edit church form
+        const editForm = document.getElementById('edit-church-form');
+        if (editForm) {
+            // Pre-fill
+            setVal('edit-name', church.name);
+            setVal('edit-address', church.address);
+            setVal('edit-phone', church.phone);
+            setVal('edit-website', church.website);
+            setVal('edit-description', church.description);
+            const denomSelect = document.getElementById('edit-denomination');
+            if (denomSelect) denomSelect.value = church.denomination;
+            const verifiedCb = document.getElementById('edit-verified');
+            if (verifiedCb) verifiedCb.checked = church.verified;
+
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    await api('/churches/' + churchId, {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            name: document.getElementById('edit-name').value,
+                            denomination: document.getElementById('edit-denomination').value,
+                            address: document.getElementById('edit-address').value,
+                            phone: document.getElementById('edit-phone').value,
+                            website: document.getElementById('edit-website').value,
+                            description: document.getElementById('edit-description').value,
+                            verified: document.getElementById('edit-verified')?.checked || false,
+                        }),
+                    });
+                    showFormSuccess('edit-church-success', 'Church updated!');
+                    showToast('Church updated!', 'success');
+                } catch (err) {
+                    showFormError('edit-church-error', err.message);
+                }
+            });
+        }
+
+        // Suggestion form for this church
+        const suggForm = document.getElementById('church-suggestion-form');
+        if (suggForm) {
+            suggForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    await api('/suggestions', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            church_id: parseInt(churchId),
+                            type: document.getElementById('church-sugg-type').value,
+                            content: document.getElementById('church-sugg-content').value,
+                        }),
+                    });
+                    showFormSuccess('church-sugg-success', 'Suggestion submitted! Thank you.');
+                    suggForm.reset();
+                } catch (err) {
+                    showFormError('church-sugg-error', err.message);
+                }
+            });
+        }
+
+    } catch (err) {
+        if (loading) loading.hidden = true;
+        if (error) error.hidden = false;
+    }
+}
+
+function renderSchedule(schedules) {
+    const tbody = document.getElementById('schedule-tbody');
+    const empty = document.getElementById('schedule-empty');
+    if (!tbody) return;
+
+    if (!schedules.length) {
+        if (empty) empty.hidden = false;
+        tbody.innerHTML = '';
+        return;
+    }
+    if (empty) empty.hidden = true;
+
+    const sorted = [...schedules].sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time));
+    tbody.innerHTML = sorted.map(s => `
+        <tr>
+            <td class="schedule-day">${DAY_NAMES[s.day_of_week]}</td>
+            <td>${escapeHtml(s.start_time)}</td>
+            <td>${escapeHtml(s.language)}</td>
+            <td>${escapeHtml(s.notes || '—')}</td>
+        </tr>
+    `).join('');
+}
+
+async function loadChurchCheckins(churchId) {
+    try {
+        const checkins = await api('/churches/' + churchId + '/checkins');
+        const list = document.getElementById('checkin-list');
+        const empty = document.getElementById('checkin-list-empty');
+        if (!list) return;
+
+        if (!checkins.length) {
+            if (empty) empty.hidden = false;
+            return;
+        }
+        if (empty) empty.hidden = true;
+
+        list.innerHTML = checkins.map(c => {
+            const name = c.user?.name || 'Anonymous';
+            const initial = name.charAt(0).toUpperCase();
+            const time = new Date(c.created_at).toLocaleDateString();
+            return `
+                <li class="checkin-item">
+                    <div class="checkin-avatar">${initial}</div>
+                    <div class="checkin-details">
+                        <span class="checkin-name">${escapeHtml(name)}</span>
+                        <span class="checkin-time">${time}</span>
+                    </div>
+                </li>`;
+        }).join('');
+    } catch (err) {
+        // silently fail
+    }
+}
+
+async function doCheckin(churchId) {
+    try {
+        await api('/checkins', {
+            method: 'POST',
+            body: JSON.stringify({ church_id: parseInt(churchId) }),
+        });
+        showToast('Checked in! God bless.', 'success');
+        const msg = document.getElementById('checkin-msg');
+        if (msg) { msg.textContent = 'Checked in successfully!'; msg.hidden = false; }
+        loadChurchCheckins(churchId);
+    } catch (err) {
+        const errEl = document.getElementById('checkin-error');
+        if (errEl) { errEl.textContent = err.message; errEl.hidden = false; }
+        showToast(err.message, 'error');
+    }
+}
+
+// ─── Profile Page ────────────────────────────────────────────────────────────
+
+async function initProfilePage() {
+    const loading = document.getElementById('profile-loading');
+    const content = document.getElementById('profile-content');
+
+    try {
+        const [user, stats, checkins, suggestions] = await Promise.all([
+            api('/auth/me'),
+            api('/checkins/stats'),
+            api('/checkins/mine'),
+            api('/suggestions/mine'),
+        ]);
+
+        if (loading) loading.hidden = true;
+        if (content) content.hidden = false;
+
+        // Profile info
+        setText('profile-name', user.name);
+        setText('profile-email', user.email);
+        setText('profile-denomination', user.denomination);
+        setText('profile-role', user.role);
+        setText('profile-avatar-initials', user.name.charAt(0).toUpperCase());
+
+        // Stats
+        setText('stat-total', stats.total_checkins);
+        setText('stat-recent', stats.recent_30_days);
+
+        // Top churches
+        if (stats.top_churches?.length) {
+            show('top-churches-section');
+            const topList = document.getElementById('top-churches-list');
+            if (topList) {
+                topList.innerHTML = stats.top_churches.map(c =>
+                    `<li>${escapeHtml(c.church_name)} (${c.visits} visits)</li>`
+                ).join('');
+            }
+        }
+
+        // Edit form
+        const editForm = document.getElementById('edit-profile-form');
+        if (editForm) {
+            setVal('edit-name', user.name);
+            const denomSelect = document.getElementById('edit-denomination');
+            if (denomSelect) denomSelect.value = user.denomination;
+
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    await api('/auth/profile', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            name: document.getElementById('edit-name').value,
+                            denomination: document.getElementById('edit-denomination').value,
+                        }),
+                    });
+                    showFormSuccess('edit-profile-success', 'Profile updated!');
+                    showToast('Profile updated!', 'success');
+                } catch (err) {
+                    showFormError('edit-profile-error', err.message);
+                }
+            });
+        }
+
+        // Recent check-ins
+        const list = document.getElementById('recent-checkins');
+        const checkinsEmpty = document.getElementById('checkins-empty');
+        if (list) {
+            if (checkins.length) {
+                list.innerHTML = checkins.slice(0, 10).map(c => `
+                    <li class="checkin-item">
+                        <div class="checkin-details">
+                            <a href="/church/${c.church_id}" class="checkin-name">${escapeHtml(c.church?.name || 'Church #' + c.church_id)}</a>
+                            <span class="checkin-time">${new Date(c.created_at).toLocaleDateString()}</span>
+                        </div>
+                    </li>`).join('');
+            } else if (checkinsEmpty) {
+                checkinsEmpty.hidden = false;
+            }
+        }
+
+        // Suggestions
+        const suggList = document.getElementById('my-suggestions');
+        const suggsEmpty = document.getElementById('suggestions-empty');
+        if (suggList) {
+            if (suggestions.length) {
+                suggList.innerHTML = suggestions.map(s => `
+                    <li class="suggestion-item">
+                        <div class="suggestion-item-header">
+                            <span class="suggestion-type">${escapeHtml(s.type)}</span>
+                            <span class="status-badge status-badge--${s.status}">${s.status}</span>
+                        </div>
+                        <p class="suggestion-content">${escapeHtml(s.content)}</p>
+                    </li>`).join('');
+            } else if (suggsEmpty) {
+                suggsEmpty.hidden = false;
+            }
+        }
+    } catch (err) {
+        if (loading) loading.hidden = true;
+        showToast('Failed to load profile', 'error');
+    }
+}
+
+// ─── Admin Page ──────────────────────────────────────────────────────────────
+
+async function initAdminPage() {
+    // Tab switching
+    const tabs = document.querySelectorAll('.tab[role="tab"]');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => {
+                t.classList.remove('tab--active');
+                t.setAttribute('aria-selected', 'false');
+                const panel = document.getElementById(t.getAttribute('aria-controls'));
+                if (panel) panel.hidden = true;
+            });
+            tab.classList.add('tab--active');
+            tab.setAttribute('aria-selected', 'true');
+            const panel = document.getElementById(tab.getAttribute('aria-controls'));
+            if (panel) panel.hidden = false;
+        });
+    });
+
+    // Refresh buttons
+    const refreshUsers = document.getElementById('refresh-users-btn');
+    if (refreshUsers) refreshUsers.addEventListener('click', loadAdminUsers);
+    const refreshChurches = document.getElementById('refresh-churches-btn');
+    if (refreshChurches) refreshChurches.addEventListener('click', loadAdminChurches);
+    const refreshSuggs = document.getElementById('refresh-suggestions-btn');
+    if (refreshSuggs) refreshSuggs.addEventListener('click', loadAdminSuggestions);
+
+    // Confirm modal
+    const confirmCancel = document.getElementById('confirm-cancel');
+    const confirmBackdrop = document.getElementById('confirm-backdrop');
+    if (confirmCancel) confirmCancel.addEventListener('click', closeConfirmModal);
+    if (confirmBackdrop) confirmBackdrop.addEventListener('click', closeConfirmModal);
+
+    // Review modal
+    const reviewClose = document.getElementById('review-modal-close');
+    const reviewCancel = document.getElementById('review-cancel');
+    const reviewBackdrop = document.getElementById('review-backdrop');
+    if (reviewClose) reviewClose.addEventListener('click', closeReviewModal);
+    if (reviewCancel) reviewCancel.addEventListener('click', closeReviewModal);
+    if (reviewBackdrop) reviewBackdrop.addEventListener('click', closeReviewModal);
+
+    const reviewForm = document.getElementById('review-form');
+    if (reviewForm) reviewForm.addEventListener('submit', submitReview);
+
+    await Promise.all([loadAdminUsers(), loadAdminChurches(), loadAdminSuggestions()]);
+}
+
+async function loadAdminUsers() {
+    const loading = document.getElementById('users-loading');
+    const wrapper = document.getElementById('users-table-wrapper');
+    const tbody = document.getElementById('users-tbody');
+    if (!tbody) return;
+
+    if (loading) loading.hidden = false;
+    if (wrapper) wrapper.hidden = true;
+
+    try {
+        const users = await api('/admin/users');
+        if (loading) loading.hidden = true;
+        if (wrapper) wrapper.hidden = false;
+
+        tbody.innerHTML = users.map(u => `
+            <tr>
+                <td>${u.id}</td>
+                <td>${escapeHtml(u.name)}</td>
+                <td>${escapeHtml(u.email)}</td>
+                <td><span class="denomination-badge">${escapeHtml(u.denomination)}</span></td>
+                <td>
+                    <select data-user-id="${u.id}" class="form-select form-select--sm role-select" aria-label="Change role">
+                        <option value="user" ${u.role === 'user' ? 'selected' : ''}>User</option>
+                        <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    </select>
+                </td>
+                <td>${new Date(u.created_at).toLocaleDateString()}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary save-role-btn" data-user-id="${u.id}">Save role</button>
+                </td>
+            </tr>`).join('');
+
+        tbody.querySelectorAll('.save-role-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const userId = btn.dataset.userId;
+                const select = tbody.querySelector(`select[data-user-id="${userId}"]`);
+                if (!select) return;
+                try {
+                    await api('/admin/users/' + userId + '/role', {
+                        method: 'PUT',
+                        body: JSON.stringify({ role: select.value }),
+                    });
+                    showToast('Role updated', 'success');
+                } catch (err) {
+                    showToast(err.message, 'error');
+                }
+            });
+        });
+    } catch (err) {
+        if (loading) loading.hidden = true;
+        showToast('Failed to load users', 'error');
+    }
+}
+
+async function loadAdminChurches() {
+    const loading = document.getElementById('churches-loading');
+    const wrapper = document.getElementById('churches-table-wrapper');
+    const tbody = document.getElementById('churches-tbody');
+    if (!tbody) return;
+
+    if (loading) loading.hidden = false;
+    if (wrapper) wrapper.hidden = true;
+
+    try {
+        const churches = await api('/churches');
+        if (loading) loading.hidden = true;
+        if (wrapper) wrapper.hidden = false;
+
+        tbody.innerHTML = churches.map(c => `
+            <tr>
+                <td>${c.id}</td>
+                <td><a href="/church/${c.id}">${escapeHtml(c.name)}</a></td>
+                <td><span class="denomination-badge">${escapeHtml(c.denomination)}</span></td>
+                <td>${escapeHtml(c.address)}</td>
+                <td>${c.verified ? '<span class="status-badge status-badge--approved">Verified</span>' : '<span class="status-badge status-badge--pending">Unverified</span>'}</td>
+                <td>${new Date(c.created_at).toLocaleDateString()}</td>
+                <td>
+                    ${!c.verified ? `<button class="btn btn-sm btn-success verify-church-btn" data-id="${c.id}">Verify</button>` : ''}
+                    <button class="btn btn-sm btn-danger delete-church-btn" data-id="${c.id}">Delete</button>
+                </td>
+            </tr>`).join('');
+
+        tbody.querySelectorAll('.verify-church-btn').forEach(btn => {
+            btn.addEventListener('click', () => verifyChurch(btn.dataset.id));
+        });
+        tbody.querySelectorAll('.delete-church-btn').forEach(btn => {
+            btn.addEventListener('click', () => openConfirmModal(btn.dataset.id));
+        });
+    } catch (err) {
+        if (loading) loading.hidden = true;
+        showToast('Failed to load churches', 'error');
+    }
+}
+
+async function loadAdminSuggestions() {
+    const loading = document.getElementById('suggestions-loading');
+    const wrapper = document.getElementById('suggestions-list-wrapper');
+    const list = document.getElementById('suggestions-list');
+    const empty = document.getElementById('suggestions-empty');
+    if (!list) return;
+
+    if (loading) loading.hidden = false;
+    if (wrapper) wrapper.hidden = true;
+
+    try {
+        const statusFilter = document.getElementById('sugg-status-filter')?.value || 'pending';
+        const suggestions = await api('/suggestions?status=' + statusFilter);
+        if (loading) loading.hidden = true;
+        if (wrapper) wrapper.hidden = false;
+
+        // Update badge
+        const badge = document.getElementById('pending-badge');
+        if (badge && statusFilter === 'pending') {
+            if (suggestions.length) { badge.textContent = suggestions.length; badge.hidden = false; }
+            else { badge.hidden = true; }
+        }
+
+        if (!suggestions.length) {
+            list.innerHTML = '';
+            if (empty) empty.hidden = false;
+            return;
+        }
+        if (empty) empty.hidden = true;
+
+        list.innerHTML = suggestions.map(s => `
+            <li class="suggestion-review-item">
+                <div class="suggestion-review-meta">
+                    <span class="status-badge status-badge--${s.status}">${s.status}</span>
+                    <span class="suggestion-type">${escapeHtml(s.type)}</span>
+                    <span class="text-muted">${new Date(s.created_at).toLocaleDateString()}</span>
+                </div>
+                <p><strong>${escapeHtml(s.user?.name || 'Unknown')}</strong>${s.church ? ' - ' + escapeHtml(s.church.name) : ''}</p>
+                <blockquote class="suggestion-review-content">${escapeHtml(s.content)}</blockquote>
+                ${s.review_note ? '<p class="text-muted">Note: ' + escapeHtml(s.review_note) + '</p>' : ''}
+                ${s.status === 'pending' ? `
+                <div class="suggestion-review-actions">
+                    <button class="btn btn-sm btn-success approve-btn" data-id="${s.id}">Approve</button>
+                    <button class="btn btn-sm btn-danger reject-btn" data-id="${s.id}">Reject</button>
+                </div>` : ''}
+            </li>`).join('');
+
+        list.querySelectorAll('.approve-btn').forEach(btn => {
+            btn.addEventListener('click', () => openReviewModal(btn.dataset.id, 'approved'));
+        });
+        list.querySelectorAll('.reject-btn').forEach(btn => {
+            btn.addEventListener('click', () => openReviewModal(btn.dataset.id, 'rejected'));
+        });
+    } catch (err) {
+        if (loading) loading.hidden = true;
+        showToast('Failed to load suggestions', 'error');
+    }
+}
+
+// Suggestion filter change
+document.addEventListener('change', (e) => {
+    if (e.target.id === 'sugg-status-filter') loadAdminSuggestions();
+});
+
+async function verifyChurch(id) {
+    try {
+        await api('/admin/churches/' + id + '/verify', { method: 'PUT' });
+        showToast('Church verified', 'success');
+        loadAdminChurches();
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+let pendingDeleteChurchId = null;
+
+function openConfirmModal(churchId) {
+    pendingDeleteChurchId = churchId;
+    const modal = document.getElementById('confirm-modal');
+    const msg = document.getElementById('confirm-message');
+    if (msg) msg.textContent = 'Are you sure you want to delete this church? This action cannot be undone.';
+    if (modal) modal.hidden = false;
+
+    const okBtn = document.getElementById('confirm-ok');
+    if (okBtn) {
+        okBtn.onclick = async () => {
+            try {
+                await api('/admin/churches/' + pendingDeleteChurchId, { method: 'DELETE' });
+                showToast('Church deleted', 'success');
+                loadAdminChurches();
+            } catch (err) { showToast(err.message, 'error'); }
+            closeConfirmModal();
+        };
+    }
+}
+
+function closeConfirmModal() {
+    const modal = document.getElementById('confirm-modal');
+    if (modal) modal.hidden = true;
+    pendingDeleteChurchId = null;
+}
+
+function openReviewModal(suggestionId, action) {
+    const modal = document.getElementById('review-modal');
+    const idInput = document.getElementById('review-suggestion-id');
+    const actionInput = document.getElementById('review-action');
+    const title = document.getElementById('review-modal-title');
+    const submitBtn = document.getElementById('review-submit');
+
+    if (idInput) idInput.value = suggestionId;
+    if (actionInput) actionInput.value = action;
+    if (title) title.textContent = action === 'approved' ? 'Approve Suggestion' : 'Reject Suggestion';
+    if (submitBtn) {
+        submitBtn.textContent = action === 'approved' ? 'Approve' : 'Reject';
+        submitBtn.className = action === 'approved' ? 'btn btn-success' : 'btn btn-danger';
+    }
+    if (modal) modal.hidden = false;
+}
+
+function closeReviewModal() {
+    const modal = document.getElementById('review-modal');
+    if (modal) modal.hidden = true;
+    const noteInput = document.getElementById('review-note');
+    if (noteInput) noteInput.value = '';
+}
+
+async function submitReview(e) {
+    e.preventDefault();
+    const id = document.getElementById('review-suggestion-id')?.value;
+    const action = document.getElementById('review-action')?.value;
+    const note = document.getElementById('review-note')?.value || '';
+
+    try {
+        await api('/suggestions/' + id, {
+            method: 'PUT',
+            body: JSON.stringify({ status: action, review_note: note }),
+        });
+        showToast('Suggestion ' + action, 'success');
+        closeReviewModal();
+        loadAdminSuggestions();
+    } catch (err) { showToast(err.message, 'error'); }
+}
+
+// ─── DOM Helpers ─────────────────────────────────────────────────────────────
+
+function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text ?? '';
+}
+
+function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = val ?? '';
+}
+
+function show(id) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = false;
+}
+
+function showFormError(id, msg) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = msg; el.hidden = false; }
+}
+
+function showFormSuccess(id, msg) {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = msg; el.hidden = false; }
+    setTimeout(() => { if (el) el.hidden = true; }, 3000);
+}
+
+document.addEventListener('DOMContentLoaded', init);
