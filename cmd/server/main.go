@@ -66,6 +66,7 @@ func main() {
 	adminH := &handlers.AdminHandler{DB: db}
 	favoriteH := &handlers.FavoriteHandler{DB: db}
 	ownershipH := &handlers.OwnershipHandler{DB: db}
+	adminToolsH := &handlers.AdminToolsHandler{DB: db}
 	attachmentH := &handlers.AttachmentHandler{
 		DB:      db,
 		Store:   store,
@@ -142,9 +143,18 @@ func main() {
 	cmgr.PUT("/claims/:id", ownershipH.ReviewClaim)
 	cmgr.PUT("/churches/:id/verify", adminH.VerifyChurch)
 
+	// Admin tools (CM + Admin)
+	cmgr.GET("/audit-log", adminToolsH.GetAuditLog)
+	cmgr.GET("/data-health", adminToolsH.DataHealthDashboard)
+	cmgr.GET("/duplicates", adminToolsH.FindDuplicateChurches)
+	cmgr.GET("/stale-churches", adminToolsH.StaleChurches)
+	cmgr.POST("/bulk/verify-churches", adminToolsH.BulkVerifyChurches)
+	cmgr.POST("/bulk/review-suggestions", adminToolsH.BulkReviewSuggestions)
+
 	// Admin only routes (destructive operations)
 	adm := auth.Group("/admin", middleware.RoleRequired(models.RoleAdmin))
 	adm.DELETE("/churches/:id", adminH.DeleteChurch)
+	adm.POST("/merge-churches", adminToolsH.MergeChurches)
 
 	// Protected pages
 	pages := r.Group("/", middleware.AuthRequired(cfg.JWTSecret))

@@ -51,5 +51,7 @@ func runMigrations(db *gorm.DB) error {
 		&models.Favorite{},
 		&models.ChurchOwnership{},
 		&models.Attachment{},
+		&models.AuditLog{},
+		&models.UserReputation{},
 	)
 }

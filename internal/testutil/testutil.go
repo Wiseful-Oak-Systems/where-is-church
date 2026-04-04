@@ -44,6 +44,8 @@ func NewTestApp(t *testing.T) *TestApp {
 		&models.Favorite{},
 		&models.ChurchOwnership{},
 		&models.Attachment{},
+		&models.AuditLog{},
+		&models.UserReputation{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
@@ -65,6 +67,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	adminH := &handlers.AdminHandler{DB: db}
 	favoriteH := &handlers.FavoriteHandler{DB: db}
 	ownershipH := &handlers.OwnershipHandler{DB: db}
+	adminToolsH := &handlers.AdminToolsHandler{DB: db}
 	testStore, _ := storage.NewLocalStore(t.TempDir())
 	attachmentH := &handlers.AttachmentHandler{DB: db, Store: testStore, MaxSize: 10 * 1024 * 1024}
 
@@ -121,9 +124,16 @@ func NewTestApp(t *testing.T) *TestApp {
 	cmgr.GET("/claims", ownershipH.ListClaims)
 	cmgr.PUT("/claims/:id", ownershipH.ReviewClaim)
 	cmgr.PUT("/churches/:id/verify", adminH.VerifyChurch)
+	cmgr.GET("/audit-log", adminToolsH.GetAuditLog)
+	cmgr.GET("/data-health", adminToolsH.DataHealthDashboard)
+	cmgr.GET("/duplicates", adminToolsH.FindDuplicateChurches)
+	cmgr.GET("/stale-churches", adminToolsH.StaleChurches)
+	cmgr.POST("/bulk/verify-churches", adminToolsH.BulkVerifyChurches)
+	cmgr.POST("/bulk/review-suggestions", adminToolsH.BulkReviewSuggestions)
 
 	adm := auth.Group("/admin", middleware.RoleRequired(models.RoleAdmin))
 	adm.DELETE("/churches/:id", adminH.DeleteChurch)
+	adm.POST("/merge-churches", adminToolsH.MergeChurches)
 
 	return &TestApp{DB: db, Router: r, Cfg: cfg, T: t}
 }
