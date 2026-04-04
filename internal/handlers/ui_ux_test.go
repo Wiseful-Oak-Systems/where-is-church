@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/wiseful-oak-systems/where-is-church/internal/models"
+
 	"github.com/wiseful-oak-systems/where-is-church/internal/testutil"
 )
 
@@ -268,6 +270,11 @@ func TestSuggestionTypeValidation(t *testing.T) {
 	t.Run("Suggestion accepts all valid types", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
 		token := app.CreateUser("All Types", "alltypes@test.com", "password123", "Catholic")
+		// Seed check-ins to build trust score above rate limit threshold
+		churchID := app.SeedChurch("Trust Church", "Catholic", "Addr", -23.0, -46.0)
+		for i := 0; i < 60; i++ {
+			app.DB.Create(&models.CheckIn{UserID: 1, ChurchID: churchID})
+		}
 
 		for _, typ := range []string{"new_church", "edit_church", "schedule", "general"} {
 			resp := app.Request("POST", "/api/suggestions", map[string]any{
@@ -289,7 +296,7 @@ func TestSuggestionReviewValidation(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "test",
 		}, userToken)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := itoa(uint(sugg["id"].(float64)))
 
 		resp = app.Request("PUT", "/api/suggestions/"+suggID, map[string]any{

@@ -53,12 +53,27 @@ func (h *SuggestionHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// Rate limiting: check rejection streak and daily limit
+	allowed, reason := CheckSubmissionAllowed(h.DB, userID)
+	if !allowed {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": reason})
+		return
+	}
+
+	// Determine if suggestion qualifies for auto-approval
+	status := models.SuggestionPending
+	autoApproved := false
+	if ShouldAutoApprove(h.DB, userID, input.Type) {
+		status = models.SuggestionApproved
+		autoApproved = true
+	}
+
 	suggestion := models.Suggestion{
 		UserID:   userID,
 		ChurchID: input.ChurchID,
 		Type:     input.Type,
 		Content:  input.Content,
-		Status:   models.SuggestionPending,
+		Status:   status,
 	}
 
 	if err := h.DB.WithContext(c.Request.Context()).Create(&suggestion).Error; err != nil {
@@ -66,7 +81,15 @@ func (h *SuggestionHandler) Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, suggestion)
+	// Update reputation after new suggestion
+	_, _ = RecalculateUserReputation(h.DB, userID)
+
+	response := gin.H{"suggestion": suggestion}
+	if autoApproved {
+		response["auto_approved"] = true
+		response["message"] = "Your suggestion was auto-approved based on your trust score. Thank you for your contributions!"
+	}
+	c.JSON(http.StatusCreated, response)
 }
 
 func (h *SuggestionHandler) List(c *gin.Context) {

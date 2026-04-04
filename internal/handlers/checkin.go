@@ -71,6 +71,9 @@ func (h *CheckInHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "check-in created but failed to load details"})
 		return
 	}
+	// Update reputation after check-in
+	_, _ = RecalculateUserReputation(h.DB, userID)
+
 	c.JSON(http.StatusCreated, checkin)
 }
 

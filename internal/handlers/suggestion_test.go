@@ -22,11 +22,12 @@ func TestSuggestionSubmission(t *testing.T) {
 			t.Fatalf("expected 201, got %d: %s", resp.Code, resp.Body.String())
 		}
 		result := testutil.ParseJSON(resp)
-		if result["type"] != "new_church" {
-			t.Errorf("expected type 'new_church', got %v", result["type"])
+		sugg := result["suggestion"].(map[string]any)
+		if sugg["type"] != "new_church" {
+			t.Errorf("expected type 'new_church', got %v", sugg["type"])
 		}
-		if result["status"] != "pending" {
-			t.Errorf("new suggestion should have 'pending' status, got %v", result["status"])
+		if sugg["status"] != "pending" {
+			t.Errorf("new suggestion should have 'pending' status, got %v", sugg["status"])
 		}
 	})
 
@@ -122,7 +123,7 @@ func TestSuggestionReview(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "new_church", "content": "New church near the park",
 		}, userToken)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := int(sugg["id"].(float64))
 
 		// Moderator approves
@@ -151,7 +152,7 @@ func TestSuggestionReview(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "Something invalid",
 		}, userToken)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := int(sugg["id"].(float64))
 
 		resp = app.Request("PUT", fmt.Sprintf("/api/suggestions/%d", suggID), map[string]any{
@@ -175,7 +176,7 @@ func TestSuggestionReview(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "Some suggestion",
 		}, userToken)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := int(sugg["id"].(float64))
 
 		resp = app.Request("PUT", fmt.Sprintf("/api/suggestions/%d", suggID), map[string]any{

@@ -35,7 +35,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		t.Fatalf("failed to open test database: %v", err)
 	}
 
-	if err := db.AutoMigrate(
+	allModels := []any{
 		&models.User{},
 		&models.Church{},
 		&models.MassSchedule{},
@@ -46,8 +46,11 @@ func NewTestApp(t *testing.T) *TestApp {
 		&models.Attachment{},
 		&models.AuditLog{},
 		&models.UserReputation{},
-	); err != nil {
-		t.Fatalf("failed to migrate test database: %v", err)
+	}
+	for _, m := range allModels {
+		if err := db.AutoMigrate(m); err != nil {
+			t.Fatalf("failed to migrate %T: %v", m, err)
+		}
 	}
 
 	cfg := &config.Config{
@@ -68,6 +71,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	favoriteH := &handlers.FavoriteHandler{DB: db}
 	ownershipH := &handlers.OwnershipHandler{DB: db}
 	adminToolsH := &handlers.AdminToolsHandler{DB: db}
+	reputationH := &handlers.ReputationHandler{DB: db}
 	testStore, _ := storage.NewLocalStore(t.TempDir())
 	attachmentH := &handlers.AttachmentHandler{DB: db, Store: testStore, MaxSize: 10 * 1024 * 1024}
 
@@ -104,6 +108,9 @@ func NewTestApp(t *testing.T) *TestApp {
 	auth.POST("/churches/:id/claim", ownershipH.ClaimChurch)
 	auth.GET("/my-churches", ownershipH.MyChurches)
 	auth.GET("/my-churches/claims", ownershipH.MyClaims)
+
+	auth.GET("/reputation", reputationH.GetMyReputation)
+	auth.GET("/leaderboard", reputationH.Leaderboard)
 
 	auth.POST("/attachments", attachmentH.Upload)
 	auth.GET("/attachments", attachmentH.List)

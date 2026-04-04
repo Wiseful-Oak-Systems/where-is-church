@@ -67,6 +67,7 @@ func main() {
 	favoriteH := &handlers.FavoriteHandler{DB: db}
 	ownershipH := &handlers.OwnershipHandler{DB: db}
 	adminToolsH := &handlers.AdminToolsHandler{DB: db}
+	reputationH := &handlers.ReputationHandler{DB: db}
 	attachmentH := &handlers.AttachmentHandler{
 		DB:      db,
 		Store:   store,
@@ -120,6 +121,9 @@ func main() {
 	auth.POST("/churches/:id/claim", ownershipH.ClaimChurch)
 	auth.GET("/my-churches", ownershipH.MyChurches)
 	auth.GET("/my-churches/claims", ownershipH.MyClaims)
+
+	auth.GET("/reputation", reputationH.GetMyReputation)
+	auth.GET("/leaderboard", reputationH.Leaderboard)
 
 	auth.POST("/attachments", attachmentH.Upload)
 	auth.GET("/attachments", attachmentH.List)

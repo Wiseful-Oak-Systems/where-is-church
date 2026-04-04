@@ -49,7 +49,7 @@ func TestAttachmentUpload(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "new_church", "content": "New church with photo evidence",
 		}, token)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := fmt.Sprintf("%d", int(sugg["id"].(float64)))
 
 		// Upload a fake JPEG (JPEG magic bytes)
@@ -111,7 +111,7 @@ func TestAttachmentUpload(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "test",
 		}, token)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := fmt.Sprintf("%d", int(sugg["id"].(float64)))
 		_ = churchID
 
@@ -153,7 +153,7 @@ func TestAttachmentList(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "new_church", "content": "With photos",
 		}, token)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := fmt.Sprintf("%d", int(sugg["id"].(float64)))
 
 		// Upload two files
@@ -186,7 +186,7 @@ func TestAttachmentDelete(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "Delete test",
 		}, token)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := fmt.Sprintf("%d", int(sugg["id"].(float64)))
 
 		jpegData := append([]byte{0xFF, 0xD8, 0xFF, 0xE0}, bytes.Repeat([]byte{0x00}, 100)...)
@@ -213,7 +213,7 @@ func TestAttachmentDelete(t *testing.T) {
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "Other test",
 		}, token1)
-		sugg := testutil.ParseJSON(resp)
+		sugg := testutil.ParseJSON(resp)["suggestion"].(map[string]any)
 		suggID := fmt.Sprintf("%d", int(sugg["id"].(float64)))
 
 		jpegData := append([]byte{0xFF, 0xD8, 0xFF, 0xE0}, bytes.Repeat([]byte{0x00}, 100)...)

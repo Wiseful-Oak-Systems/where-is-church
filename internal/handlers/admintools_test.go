@@ -99,13 +99,13 @@ func TestBulkReviewSuggestions(t *testing.T) {
 		userToken := app.CreateUser("User", "bulkuser@test.com", "password123", "Catholic")
 		cmToken := app.CreateCommunityManager("CM", "cmbulk@test.com", "password123")
 
+		_ = userToken // user exists but we seed suggestions directly to avoid rate limits
+
 		var ids []uint
 		for i := 0; i < 3; i++ {
-			resp := app.Request("POST", "/api/suggestions", map[string]any{
-				"type": "general", "content": "bulk test",
-			}, userToken)
-			sugg := testutil.ParseJSON(resp)
-			ids = append(ids, uint(sugg["id"].(float64)))
+			s := models.Suggestion{UserID: 1, Type: models.SuggestGeneral, Content: "bulk test", Status: models.SuggestionPending}
+			app.DB.Create(&s)
+			ids = append(ids, s.ID)
 		}
 
 		resp := app.Request("POST", "/api/admin/bulk/review-suggestions", map[string]any{
