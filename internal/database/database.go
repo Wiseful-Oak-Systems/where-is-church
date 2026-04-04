@@ -1,17 +1,23 @@
 package database
 
 import (
-	"fmt"
 	"log"
+	"time"
 
 	"github.com/wiseful-oak-systems/where-is-church/internal/config"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func Connect(cfg *config.Config) *gorm.DB {
-	db, err := gorm.Open(postgres.Open(cfg.DSN()), &gorm.Config{})
+	gormCfg := &gorm.Config{}
+	if cfg.IsProd() {
+		gormCfg.Logger = logger.Default.LogMode(logger.Warn)
+	}
+
+	db, err := gorm.Open(postgres.Open(cfg.DSN()), gormCfg)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
@@ -20,8 +26,9 @@ func Connect(cfg *config.Config) *gorm.DB {
 	if err != nil {
 		log.Fatalf("failed to get sql.DB: %v", err)
 	}
-	sqlDB.SetMaxOpenConns(25)
-	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetMaxOpenConns(cfg.DBMaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.DBMaxIdleConns)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 
 	// Enable PostGIS
 	db.Exec("CREATE EXTENSION IF NOT EXISTS postgis")
@@ -30,7 +37,7 @@ func Connect(cfg *config.Config) *gorm.DB {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 
-	fmt.Println("Database connected and migrated successfully")
+	log.Println("Database connected and migrated successfully")
 	return db
 }
 
@@ -41,5 +48,6 @@ func runMigrations(db *gorm.DB) error {
 		&models.MassSchedule{},
 		&models.CheckIn{},
 		&models.Suggestion{},
+		&models.Favorite{},
 	)
 }

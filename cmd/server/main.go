@@ -1,7 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wiseful-oak-systems/where-is-church/internal/config"
@@ -13,11 +19,34 @@ import (
 
 func main() {
 	cfg := config.Load()
+
+	if cfg.IsProd() {
+		if err := cfg.Validate(); err != nil {
+			log.Fatalf("configuration error: %v", err)
+		}
+		gin.SetMode(gin.ReleaseMode)
+	}
+
 	db := database.Connect(cfg)
 
-	r := gin.Default()
+	r := gin.New()
+	r.Use(gin.Recovery())
+	if !cfg.IsProd() {
+		r.Use(gin.Logger())
+	}
+
 	r.LoadHTMLGlob("web/templates/*")
 	r.Static("/static", "web/static")
+
+	// Health check
+	r.GET("/health", func(c *gin.Context) {
+		sqlDB, err := db.DB()
+		if err != nil || sqlDB.Ping() != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
 
 	// Handlers
 	authH := &handlers.AuthHandler{DB: db, Cfg: cfg}
@@ -25,11 +54,20 @@ func main() {
 	checkinH := &handlers.CheckInHandler{DB: db}
 	suggestionH := &handlers.SuggestionHandler{DB: db}
 	adminH := &handlers.AdminHandler{DB: db}
+	favoriteH := &handlers.FavoriteHandler{DB: db}
 	pageH := &handlers.PageHandler{}
 
 	// Public pages
 	r.GET("/login", pageH.Login)
 	r.GET("/register", pageH.RegisterPage)
+
+	// Custom JSON 404/405
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+	})
+	r.NoMethod(func(c *gin.Context) {
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
+	})
 
 	// Public API
 	api := r.Group("/api")
@@ -56,6 +94,11 @@ func main() {
 	auth.POST("/suggestions", suggestionH.Create)
 	auth.GET("/suggestions/mine", suggestionH.MySuggestions)
 
+	auth.POST("/churches/:id/favorite", favoriteH.Add)
+	auth.DELETE("/churches/:id/favorite", favoriteH.Remove)
+	auth.GET("/churches/:id/favorite", favoriteH.Check)
+	auth.GET("/favorites", favoriteH.List)
+
 	// Moderator + Admin routes
 	mod := auth.Group("/", middleware.RoleRequired(models.RoleModerator, models.RoleAdmin))
 	mod.PUT("/churches/:id", churchH.Update)
@@ -78,8 +121,31 @@ func main() {
 	pages.GET("/profile", pageH.Profile)
 	pages.GET("/admin", middleware.RoleRequired(models.RoleAdmin), pageH.AdminPage)
 
-	log.Printf("Server starting on :%s", cfg.Port)
-	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+	// Graceful shutdown
+	srv := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      r,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
 	}
+
+	go func() {
+		log.Printf("Server starting on :%s", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("failed to start server: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("server forced to shutdown: %v", err)
+	}
+	log.Println("Server stopped gracefully")
 }

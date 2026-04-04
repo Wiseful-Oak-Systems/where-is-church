@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -19,7 +20,7 @@ type AuthHandler struct {
 type RegisterInput struct {
 	Name         string `json:"name" binding:"required"`
 	Email        string `json:"email" binding:"required,email"`
-	Password     string `json:"password" binding:"required,min=6"`
+	Password     string `json:"password" binding:"required,min=8"`
 	Denomination string `json:"denomination"`
 }
 
@@ -35,14 +36,18 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	if len([]byte(input.Password)) > models.MaxBcryptPasswordLen {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("password must not exceed %d bytes", models.MaxBcryptPasswordLen)})
+		return
+	}
+
 	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
 	if input.Denomination == "" {
 		input.Denomination = "Catholic"
 	}
 
-	// Check if email already exists
 	var existing models.User
-	if err := h.DB.Where("email = ?", input.Email).First(&existing).Error; err == nil {
+	if err := h.DB.WithContext(c.Request.Context()).Where("email = ?", input.Email).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
 		return
 	}
@@ -58,7 +63,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if err := h.DB.Create(&user).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Create(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create user"})
 		return
 	}
@@ -69,7 +74,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("token", token, h.Cfg.JWTExpiry*3600, "/", "", false, true)
+	middleware.SetAuthCookie(c, token, h.Cfg.JWTExpiry*3600, h.Cfg.CookieSecure)
 	c.JSON(http.StatusCreated, gin.H{
 		"user":  user,
 		"token": token,
@@ -86,7 +91,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
 
 	var user models.User
-	if err := h.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Where("email = ?", input.Email).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
@@ -102,7 +107,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.SetCookie("token", token, h.Cfg.JWTExpiry*3600, "/", "", false, true)
+	middleware.SetAuthCookie(c, token, h.Cfg.JWTExpiry*3600, h.Cfg.CookieSecure)
 	c.JSON(http.StatusOK, gin.H{
 		"user":  user,
 		"token": token,
@@ -110,14 +115,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
-	c.SetCookie("token", "", -1, "/", "", false, true)
+	middleware.ClearAuthCookie(c, h.Cfg.CookieSecure)
 	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 
 func (h *AuthHandler) Me(c *gin.Context) {
 	userID := c.GetUint("userID")
 	var user models.User
-	if err := h.DB.First(&user, userID).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).First(&user, userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
@@ -146,18 +151,30 @@ func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 		updates["denomination"] = input.Denomination
 	}
 	if input.Latitude != nil {
+		if *input.Latitude < -90 || *input.Latitude > 90 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "latitude must be between -90 and 90"})
+			return
+		}
 		updates["latitude"] = *input.Latitude
 	}
 	if input.Longitude != nil {
+		if *input.Longitude < -180 || *input.Longitude > 180 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "longitude must be between -180 and 180"})
+			return
+		}
 		updates["longitude"] = *input.Longitude
 	}
 
-	if err := h.DB.Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
+	ctx := c.Request.Context()
+	if err := h.DB.WithContext(ctx).Model(&models.User{}).Where("id = ?", userID).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update profile"})
 		return
 	}
 
 	var user models.User
-	h.DB.First(&user, userID)
+	if err := h.DB.WithContext(ctx).First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch updated profile"})
+		return
+	}
 	c.JSON(http.StatusOK, user)
 }

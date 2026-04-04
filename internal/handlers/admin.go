@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
@@ -13,8 +14,12 @@ type AdminHandler struct {
 }
 
 func (h *AdminHandler) ListUsers(c *gin.Context) {
+	ctx := c.Request.Context()
+	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	offset := parseOffset(c.Query("offset"))
+
 	var users []models.User
-	if err := h.DB.Order("created_at DESC").Find(&users).Error; err != nil {
+	if err := h.DB.WithContext(ctx).Order("created_at DESC").Limit(limit).Offset(offset).Find(&users).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list users"})
 		return
 	}
@@ -33,11 +38,11 @@ func (h *AdminHandler) SetRole(c *gin.Context) {
 	}
 
 	if input.Role != models.RoleUser && input.Role != models.RoleModerator && input.Role != models.RoleAdmin {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid role: must be 'user', 'moderator', or 'admin'"})
 		return
 	}
 
-	if err := h.DB.Model(&models.User{}).Where("id = ?", userID).Update("role", input.Role).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Model(&models.User{}).Where("id = ?", userID).Update("role", input.Role).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update role"})
 		return
 	}
@@ -47,8 +52,10 @@ func (h *AdminHandler) SetRole(c *gin.Context) {
 
 func (h *AdminHandler) VerifyChurch(c *gin.Context) {
 	churchID := c.Param("id")
+	now := time.Now()
 
-	if err := h.DB.Model(&models.Church{}).Where("id = ?", churchID).Update("verified", true).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Model(&models.Church{}).Where("id = ?", churchID).
+		Updates(map[string]any{"verified": true, "last_verified": now}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify church"})
 		return
 	}
@@ -59,7 +66,7 @@ func (h *AdminHandler) VerifyChurch(c *gin.Context) {
 func (h *AdminHandler) DeleteChurch(c *gin.Context) {
 	churchID := c.Param("id")
 
-	if err := h.DB.Delete(&models.Church{}, churchID).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Delete(&models.Church{}, churchID).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete church"})
 		return
 	}

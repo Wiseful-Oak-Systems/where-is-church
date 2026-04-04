@@ -12,7 +12,7 @@ func TestUserRegistration(t *testing.T) {
 		app := testutil.NewTestApp(t)
 		resp := app.Request("POST", "/api/auth/register", map[string]string{
 			"name": "Maria Silva", "email": "maria@example.com",
-			"password": "secret123", "denomination": "Catholic",
+			"password": "secret1234", "denomination": "Catholic",
 		}, "")
 
 		if resp.Code != http.StatusCreated {
@@ -34,7 +34,7 @@ func TestUserRegistration(t *testing.T) {
 	t.Run("Registration defaults denomination to Catholic when not specified", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
 		resp := app.Request("POST", "/api/auth/register", map[string]string{
-			"name": "João", "email": "joao@example.com", "password": "secret123",
+			"name": "João", "email": "joao@example.com", "password": "secret1234",
 		}, "")
 
 		if resp.Code != http.StatusCreated {
@@ -49,10 +49,10 @@ func TestUserRegistration(t *testing.T) {
 
 	t.Run("Registration with an already used email is rejected", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		app.CreateUser("First User", "duplicate@example.com", "pass123", "Catholic")
+		app.CreateUser("First User", "duplicate@example.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/auth/register", map[string]string{
-			"name": "Second User", "email": "duplicate@example.com", "password": "pass456",
+			"name": "Second User", "email": "duplicate@example.com", "password": "password456",
 		}, "")
 
 		if resp.Code != http.StatusConflict {
@@ -88,10 +88,10 @@ func TestUserRegistration(t *testing.T) {
 		}
 	})
 
-	t.Run("Password must have at least 6 characters", func(t *testing.T) {
+	t.Run("Password must have at least 8 characters", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
 		resp := app.Request("POST", "/api/auth/register", map[string]string{
-			"name": "Test", "email": "short@test.com", "password": "12345",
+			"name": "Test", "email": "short@test.com", "password": "1234567",
 		}, "")
 		if resp.Code != http.StatusBadRequest {
 			t.Errorf("short password should return 400, got %d", resp.Code)
@@ -101,7 +101,7 @@ func TestUserRegistration(t *testing.T) {
 	t.Run("New user gets the default 'user' role", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
 		resp := app.Request("POST", "/api/auth/register", map[string]string{
-			"name": "Normal User", "email": "normal@test.com", "password": "pass123",
+			"name": "Normal User", "email": "normal@test.com", "password": "password123",
 		}, "")
 		result := testutil.ParseJSON(resp)
 		user := result["user"].(map[string]any)
@@ -114,7 +114,7 @@ func TestUserRegistration(t *testing.T) {
 		app := testutil.NewTestApp(t)
 		resp := app.Request("POST", "/api/auth/register", map[string]string{
 			"name": "Orthodox User", "email": "orthodox@test.com",
-			"password": "pass123", "denomination": "Orthodox",
+			"password": "password123", "denomination": "Orthodox",
 		}, "")
 		if resp.Code != http.StatusCreated {
 			t.Fatalf("expected 201, got %d", resp.Code)
@@ -130,10 +130,10 @@ func TestUserRegistration(t *testing.T) {
 func TestUserLogin(t *testing.T) {
 	t.Run("Registered user can log in with correct credentials", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		app.CreateUser("Login User", "login@test.com", "mypassword", "Catholic")
+		app.CreateUser("Login User", "login@test.com", "mypassword1", "Catholic")
 
 		resp := app.Request("POST", "/api/auth/login", map[string]string{
-			"email": "login@test.com", "password": "mypassword",
+			"email": "login@test.com", "password": "mypassword1",
 		}, "")
 
 		if resp.Code != http.StatusOK {
@@ -147,10 +147,10 @@ func TestUserLogin(t *testing.T) {
 
 	t.Run("Login with wrong password is rejected", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		app.CreateUser("User", "wrong@test.com", "correctpass", "Catholic")
+		app.CreateUser("User", "wrong@test.com", "correctpass1", "Catholic")
 
 		resp := app.Request("POST", "/api/auth/login", map[string]string{
-			"email": "wrong@test.com", "password": "wrongpass",
+			"email": "wrong@test.com", "password": "wrongpassword",
 		}, "")
 
 		if resp.Code != http.StatusUnauthorized {
@@ -172,10 +172,10 @@ func TestUserLogin(t *testing.T) {
 
 	t.Run("Email comparison is case-insensitive", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		app.CreateUser("Case User", "case@test.com", "pass123", "Catholic")
+		app.CreateUser("Case User", "case@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/auth/login", map[string]string{
-			"email": "CASE@TEST.COM", "password": "pass123",
+			"email": "CASE@TEST.COM", "password": "password123",
 		}, "")
 
 		if resp.Code != http.StatusOK {
@@ -187,7 +187,7 @@ func TestUserLogin(t *testing.T) {
 func TestUserProfile(t *testing.T) {
 	t.Run("Authenticated user can view their own profile", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Profile User", "profile@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Profile User", "profile@test.com", "password123", "Catholic")
 
 		resp := app.Request("GET", "/api/auth/me", nil, token)
 		if resp.Code != http.StatusOK {
@@ -201,7 +201,7 @@ func TestUserProfile(t *testing.T) {
 
 	t.Run("Authenticated user can update their name and denomination", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Old Name", "update@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Old Name", "update@test.com", "password123", "Catholic")
 
 		resp := app.Request("PUT", "/api/auth/profile", map[string]string{
 			"name": "New Name", "denomination": "Protestant",
@@ -221,7 +221,7 @@ func TestUserProfile(t *testing.T) {
 
 	t.Run("User can set a custom location to override geolocation", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Location User", "loc@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Location User", "loc@test.com", "password123", "Catholic")
 
 		resp := app.Request("PUT", "/api/auth/profile", map[string]any{
 			"latitude": -23.5505, "longitude": -46.6333,
@@ -248,7 +248,7 @@ func TestUserProfile(t *testing.T) {
 func TestLogout(t *testing.T) {
 	t.Run("Authenticated user can log out", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Logout User", "logout@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Logout User", "logout@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/auth/logout", nil, token)
 		if resp.Code != http.StatusOK {

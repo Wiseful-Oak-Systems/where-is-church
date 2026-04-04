@@ -13,7 +13,7 @@ import (
 func TestCheckIn(t *testing.T) {
 	t.Run("User can check in at a church like Foursquare, marking they attended", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Visitor", "visitor@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Visitor", "visitor@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Parish Church", "Catholic", "Addr", -23.0, -46.0)
 
 		resp := app.Request("POST", "/api/checkins", map[string]any{
@@ -31,7 +31,7 @@ func TestCheckIn(t *testing.T) {
 
 	t.Run("User cannot check in at the same church twice within 2 hours", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Double", "double@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Double", "double@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Dup Church", "Catholic", "Addr", -23.0, -46.0)
 
 		// First check-in
@@ -53,7 +53,7 @@ func TestCheckIn(t *testing.T) {
 
 	t.Run("User can check in at a different church without restriction", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Multi", "multi@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Multi", "multi@test.com", "password123", "Catholic")
 		church1 := app.SeedChurch("Church 1", "Catholic", "Addr 1", -23.0, -46.0)
 		church2 := app.SeedChurch("Church 2", "Catholic", "Addr 2", -23.1, -46.1)
 
@@ -67,7 +67,7 @@ func TestCheckIn(t *testing.T) {
 
 	t.Run("Check-in at non-existent church returns 404", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Ghost", "ghost@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Ghost", "ghost@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/checkins", map[string]any{
 			"church_id": 99999,
@@ -82,7 +82,7 @@ func TestCheckIn(t *testing.T) {
 func TestCheckInHistory(t *testing.T) {
 	t.Run("User can view their personal check-in history", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("History", "history@test.com", "pass123", "Catholic")
+		token := app.CreateUser("History", "history@test.com", "password123", "Catholic")
 		church1 := app.SeedChurch("History Church 1", "Catholic", "Addr", -23.0, -46.0)
 		church2 := app.SeedChurch("History Church 2", "Catholic", "Addr", -23.1, -46.1)
 
@@ -101,8 +101,8 @@ func TestCheckInHistory(t *testing.T) {
 
 	t.Run("Anyone can see recent visitors at a specific church", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token1 := app.CreateUser("Visitor1", "v1@test.com", "pass123", "Catholic")
-		token2 := app.CreateUser("Visitor2", "v2@test.com", "pass123", "Catholic")
+		token1 := app.CreateUser("Visitor1", "v1@test.com", "password123", "Catholic")
+		token2 := app.CreateUser("Visitor2", "v2@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Popular Church", "Catholic", "Addr", -23.0, -46.0)
 
 		app.Request("POST", "/api/checkins", map[string]any{"church_id": churchID}, token1)
@@ -122,7 +122,7 @@ func TestCheckInHistory(t *testing.T) {
 func TestLoyaltyTracking(t *testing.T) {
 	t.Run("System tracks user attendance stats including total and recent check-ins", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Loyal", "loyal@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Loyal", "loyal@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Loyalty Church", "Catholic", "Addr", -23.0, -46.0)
 
 		app.Request("POST", "/api/checkins", map[string]any{"church_id": churchID}, token)
@@ -146,7 +146,7 @@ func TestLoyaltyTracking(t *testing.T) {
 
 	t.Run("System identifies the most loyal users of a specific church", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token1 := app.CreateUser("Frequent", "freq@test.com", "pass123", "Catholic")
+		token1 := app.CreateUser("Frequent", "freq@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Loyal Parish", "Catholic", "Addr", -23.0, -46.0)
 
 		// Simulate multiple check-ins by inserting directly

@@ -40,14 +40,17 @@ func NewTestApp(t *testing.T) *TestApp {
 		&models.MassSchedule{},
 		&models.CheckIn{},
 		&models.Suggestion{},
+		&models.Favorite{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
 
 	cfg := &config.Config{
-		JWTSecret: "test-secret-key",
-		JWTExpiry: 72,
-		Port:      "8080",
+		JWTSecret:    "test-secret-key-that-is-at-least-32-chars-long",
+		JWTExpiry:    72,
+		Port:         "8080",
+		CookieSecure: false,
+		Environment:  "development",
 	}
 
 	r := gin.New()
@@ -57,6 +60,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	checkinH := &handlers.CheckInHandler{DB: db}
 	suggestionH := &handlers.SuggestionHandler{DB: db}
 	adminH := &handlers.AdminHandler{DB: db}
+	favoriteH := &handlers.FavoriteHandler{DB: db}
 
 	// Public API
 	api := r.Group("/api")
@@ -82,6 +86,11 @@ func NewTestApp(t *testing.T) *TestApp {
 
 	auth.POST("/suggestions", suggestionH.Create)
 	auth.GET("/suggestions/mine", suggestionH.MySuggestions)
+
+	auth.POST("/churches/:id/favorite", favoriteH.Add)
+	auth.DELETE("/churches/:id/favorite", favoriteH.Remove)
+	auth.GET("/churches/:id/favorite", favoriteH.Check)
+	auth.GET("/favorites", favoriteH.List)
 
 	mod := auth.Group("/", middleware.RoleRequired(models.RoleModerator, models.RoleAdmin))
 	mod.PUT("/churches/:id", churchH.Update)

@@ -3,35 +3,44 @@ package handlers
 import (
 	"math"
 	"net/http"
+	"regexp"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
 	"gorm.io/gorm"
 )
 
+const (
+	DefaultSearchRadiusKm = 10.0
+	MaxSearchRadiusKm     = 100.0
+	DefaultPageLimit      = 50
+	MaxPageLimit          = 200
+)
+
+var timeFormatRe = regexp.MustCompile(`^\d{2}:\d{2}$`)
+
 type ChurchHandler struct {
 	DB *gorm.DB
 }
 
-// SearchNearby finds churches within a radius (km) of a given lat/lng.
-// Uses the Haversine formula in SQL for distance calculation.
 func (h *ChurchHandler) SearchNearby(c *gin.Context) {
 	lat, err := strconv.ParseFloat(c.Query("lat"), 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "lat is required"})
+	if err != nil || lat < -90 || lat > 90 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "lat must be a valid latitude (-90 to 90)"})
 		return
 	}
 	lng, err := strconv.ParseFloat(c.Query("lng"), 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "lng is required"})
+	if err != nil || lng < -180 || lng > 180 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "lng must be a valid longitude (-180 to 180)"})
 		return
 	}
 
-	radiusKm := 10.0 // default 10km
+	radiusKm := DefaultSearchRadiusKm
 	if r := c.Query("radius"); r != "" {
 		if parsed, err := strconv.ParseFloat(r, 64); err == nil && parsed > 0 {
-			radiusKm = math.Min(parsed, 100) // cap at 100km
+			radiusKm = math.Min(parsed, MaxSearchRadiusKm)
 		}
 	}
 
@@ -42,14 +51,14 @@ func (h *ChurchHandler) SearchNearby(c *gin.Context) {
 		}
 	}
 
-	// Haversine formula for distance in km
 	haversine := `(6371 * acos(
 		cos(radians(?)) * cos(radians(latitude)) *
 		cos(radians(longitude) - radians(?)) +
 		sin(radians(?)) * sin(radians(latitude))
 	))`
 
-	query := h.DB.Model(&models.Church{}).
+	ctx := c.Request.Context()
+	query := h.DB.WithContext(ctx).Model(&models.Church{}).
 		Select("*, "+haversine+" AS distance", lat, lng, lat).
 		Where(haversine+" <= ?", lat, lng, lat, radiusKm).
 		Order("distance ASC")
@@ -74,27 +83,37 @@ func (h *ChurchHandler) SearchNearby(c *gin.Context) {
 func (h *ChurchHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 	var church models.Church
-	if err := h.DB.Preload("Schedules").Preload("CreatedBy").First(&church, id).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Preload("Schedules").Preload("CreatedBy").First(&church, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "church not found"})
 		return
 	}
 	c.JSON(http.StatusOK, church)
 }
 
-func (h *ChurchHandler) Create(c *gin.Context) {
-	var input struct {
-		Name         string  `json:"name" binding:"required"`
-		Denomination string  `json:"denomination"`
-		Address      string  `json:"address" binding:"required"`
-		Latitude     float64 `json:"latitude" binding:"required"`
-		Longitude    float64 `json:"longitude" binding:"required"`
-		Phone        string  `json:"phone"`
-		Website      string  `json:"website"`
-		Description  string  `json:"description"`
-	}
+type CreateChurchInput struct {
+	Name         string  `json:"name" binding:"required,max=200"`
+	Denomination string  `json:"denomination"`
+	Address      string  `json:"address" binding:"required,max=500"`
+	Latitude     float64 `json:"latitude" binding:"required"`
+	Longitude    float64 `json:"longitude" binding:"required"`
+	Phone        string  `json:"phone" binding:"max=50"`
+	Website      string  `json:"website" binding:"max=500"`
+	Description  string  `json:"description" binding:"max=2000"`
+}
 
+func (h *ChurchHandler) Create(c *gin.Context) {
+	var input CreateChurchInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if input.Latitude < -90 || input.Latitude > 90 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "latitude must be between -90 and 90"})
+		return
+	}
+	if input.Longitude < -180 || input.Longitude > 180 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "longitude must be between -180 and 180"})
 		return
 	}
 
@@ -115,13 +134,14 @@ func (h *ChurchHandler) Create(c *gin.Context) {
 		CreatedByID:  userID,
 	}
 
-	// Admins/moderators create verified churches
 	role := c.GetString("userRole")
 	if role == string(models.RoleAdmin) || role == string(models.RoleModerator) {
 		church.Verified = true
+		now := time.Now()
+		church.LastVerified = &now
 	}
 
-	if err := h.DB.Create(&church).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Create(&church).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create church"})
 		return
 	}
@@ -129,35 +149,79 @@ func (h *ChurchHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, church)
 }
 
+type UpdateChurchInput struct {
+	Name         string  `json:"name" binding:"max=200"`
+	Denomination string  `json:"denomination"`
+	Address      string  `json:"address" binding:"max=500"`
+	Latitude     float64 `json:"latitude"`
+	Longitude    float64 `json:"longitude"`
+	Phone        string  `json:"phone" binding:"max=50"`
+	Website      string  `json:"website" binding:"max=500"`
+	Description  string  `json:"description" binding:"max=2000"`
+}
+
 func (h *ChurchHandler) Update(c *gin.Context) {
 	id := c.Param("id")
+	ctx := c.Request.Context()
+
 	var church models.Church
-	if err := h.DB.First(&church, id).Error; err != nil {
+	if err := h.DB.WithContext(ctx).First(&church, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "church not found"})
 		return
 	}
 
-	var input map[string]any
+	var input UpdateChurchInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Prevent updating sensitive fields
-	delete(input, "id")
-	delete(input, "created_by_id")
-	delete(input, "created_at")
+	updates := map[string]any{}
+	if input.Name != "" {
+		updates["name"] = input.Name
+	}
+	if input.Denomination != "" {
+		updates["denomination"] = input.Denomination
+	}
+	if input.Address != "" {
+		updates["address"] = input.Address
+	}
+	if input.Latitude != 0 {
+		if input.Latitude < -90 || input.Latitude > 90 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "latitude must be between -90 and 90"})
+			return
+		}
+		updates["latitude"] = input.Latitude
+	}
+	if input.Longitude != 0 {
+		if input.Longitude < -180 || input.Longitude > 180 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "longitude must be between -180 and 180"})
+			return
+		}
+		updates["longitude"] = input.Longitude
+	}
+	if input.Phone != "" {
+		updates["phone"] = input.Phone
+	}
+	if input.Website != "" {
+		updates["website"] = input.Website
+	}
+	if input.Description != "" {
+		updates["description"] = input.Description
+	}
 
-	if err := h.DB.Model(&church).Updates(input).Error; err != nil {
+	if err := h.DB.WithContext(ctx).Model(&church).Updates(updates).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update church"})
 		return
 	}
 
-	h.DB.Preload("Schedules").First(&church, id)
+	if err := h.DB.WithContext(ctx).Preload("Schedules").First(&church, id).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch updated church"})
+		return
+	}
 	c.JSON(http.StatusOK, church)
 }
 
-// AddSchedule adds a mass schedule entry to a church
 func (h *ChurchHandler) AddSchedule(c *gin.Context) {
 	churchID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {
@@ -165,21 +229,41 @@ func (h *ChurchHandler) AddSchedule(c *gin.Context) {
 		return
 	}
 
-	// Verify church exists
+	ctx := c.Request.Context()
 	var church models.Church
-	if err := h.DB.First(&church, churchID).Error; err != nil {
+	if err := h.DB.WithContext(ctx).First(&church, churchID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "church not found"})
 		return
 	}
 
 	var input struct {
+		Type      string `json:"type"`
 		DayOfWeek int    `json:"day_of_week" binding:"min=0,max=6"`
 		StartTime string `json:"start_time" binding:"required"`
+		EndTime   string `json:"end_time"`
 		Language  string `json:"language"`
-		Notes     string `json:"notes"`
+		Notes     string `json:"notes" binding:"max=500"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !timeFormatRe.MatchString(input.StartTime) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "start_time must be in HH:MM format"})
+		return
+	}
+	if input.EndTime != "" && !timeFormatRe.MatchString(input.EndTime) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "end_time must be in HH:MM format"})
+		return
+	}
+
+	schedType := models.ScheduleType(input.Type)
+	if schedType == "" {
+		schedType = models.ScheduleMass
+	}
+	if !models.ValidScheduleTypes[schedType] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type must be one of: mass, confession, adoration"})
 		return
 	}
 
@@ -189,13 +273,15 @@ func (h *ChurchHandler) AddSchedule(c *gin.Context) {
 
 	schedule := models.MassSchedule{
 		ChurchID:  uint(churchID),
+		Type:      schedType,
 		DayOfWeek: input.DayOfWeek,
 		StartTime: input.StartTime,
+		EndTime:   input.EndTime,
 		Language:  input.Language,
 		Notes:     input.Notes,
 	}
 
-	if err := h.DB.Create(&schedule).Error; err != nil {
+	if err := h.DB.WithContext(ctx).Create(&schedule).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add schedule"})
 		return
 	}
@@ -204,9 +290,17 @@ func (h *ChurchHandler) AddSchedule(c *gin.Context) {
 }
 
 func (h *ChurchHandler) DeleteSchedule(c *gin.Context) {
+	churchID := c.Param("id")
 	scheduleID := c.Param("scheduleId")
-	if err := h.DB.Delete(&models.MassSchedule{}, scheduleID).Error; err != nil {
+
+	ctx := c.Request.Context()
+	result := h.DB.WithContext(ctx).Where("id = ? AND church_id = ?", scheduleID, churchID).Delete(&models.MassSchedule{})
+	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete schedule"})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "schedule not found for this church"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "schedule deleted"})
@@ -214,15 +308,44 @@ func (h *ChurchHandler) DeleteSchedule(c *gin.Context) {
 
 func (h *ChurchHandler) List(c *gin.Context) {
 	var churches []models.Church
-	query := h.DB.Preload("Schedules").Order("name ASC")
+	ctx := c.Request.Context()
+	query := h.DB.WithContext(ctx).Preload("Schedules").Order("name ASC")
 
 	if denom := c.Query("denomination"); denom != "" && denom != "All" {
 		query = query.Where("denomination = ?", denom)
 	}
 
-	if err := query.Limit(100).Find(&churches).Error; err != nil {
+	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	offset := parseOffset(c.Query("offset"))
+
+	if err := query.Limit(limit).Offset(offset).Find(&churches).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list churches"})
 		return
 	}
 	c.JSON(http.StatusOK, churches)
+}
+
+func parseLimit(s string, defaultVal int) int {
+	if s == "" {
+		return defaultVal
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil || v <= 0 {
+		return defaultVal
+	}
+	if v > MaxPageLimit {
+		return MaxPageLimit
+	}
+	return v
+}
+
+func parseOffset(s string) int {
+	if s == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(s)
+	if err != nil || v < 0 {
+		return 0
+	}
+	return v
 }

@@ -8,6 +8,18 @@ import (
 	"gorm.io/gorm"
 )
 
+var validSuggestionTypes = map[models.SuggestionType]bool{
+	models.SuggestNewChurch:  true,
+	models.SuggestEditChurch: true,
+	models.SuggestSchedule:   true,
+	models.SuggestGeneral:    true,
+}
+
+var validSuggestionStatuses = map[models.SuggestionStatus]bool{
+	models.SuggestionApproved: true,
+	models.SuggestionRejected: true,
+}
+
 type SuggestionHandler struct {
 	DB *gorm.DB
 }
@@ -16,12 +28,17 @@ func (h *SuggestionHandler) Create(c *gin.Context) {
 	userID := c.GetUint("userID")
 
 	var input struct {
-		ChurchID *uint                `json:"church_id"`
+		ChurchID *uint                 `json:"church_id"`
 		Type     models.SuggestionType `json:"type" binding:"required"`
-		Content  string               `json:"content" binding:"required"`
+		Content  string                `json:"content" binding:"required,max=5000"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !validSuggestionTypes[input.Type] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type must be one of: new_church, edit_church, schedule, general"})
 		return
 	}
 
@@ -33,7 +50,7 @@ func (h *SuggestionHandler) Create(c *gin.Context) {
 		Status:   models.SuggestionPending,
 	}
 
-	if err := h.DB.Create(&suggestion).Error; err != nil {
+	if err := h.DB.WithContext(c.Request.Context()).Create(&suggestion).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create suggestion"})
 		return
 	}
@@ -42,14 +59,18 @@ func (h *SuggestionHandler) Create(c *gin.Context) {
 }
 
 func (h *SuggestionHandler) List(c *gin.Context) {
+	ctx := c.Request.Context()
 	var suggestions []models.Suggestion
-	query := h.DB.Preload("User").Preload("Church").Order("created_at DESC")
+	query := h.DB.WithContext(ctx).Preload("User").Preload("Church").Order("created_at DESC")
 
 	if status := c.Query("status"); status != "" {
 		query = query.Where("status = ?", status)
 	}
 
-	if err := query.Limit(100).Find(&suggestions).Error; err != nil {
+	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	offset := parseOffset(c.Query("offset"))
+
+	if err := query.Limit(limit).Offset(offset).Find(&suggestions).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list suggestions"})
 		return
 	}
@@ -63,15 +84,21 @@ func (h *SuggestionHandler) Review(c *gin.Context) {
 
 	var input struct {
 		Status     models.SuggestionStatus `json:"status" binding:"required"`
-		ReviewNote string                  `json:"review_note"`
+		ReviewNote string                  `json:"review_note" binding:"max=2000"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
+	if !validSuggestionStatuses[input.Status] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status must be 'approved' or 'rejected'"})
+		return
+	}
+
+	ctx := c.Request.Context()
 	var suggestion models.Suggestion
-	if err := h.DB.First(&suggestion, id).Error; err != nil {
+	if err := h.DB.WithContext(ctx).First(&suggestion, id).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "suggestion not found"})
 		return
 	}
@@ -80,7 +107,7 @@ func (h *SuggestionHandler) Review(c *gin.Context) {
 	suggestion.ReviewedByID = &reviewerID
 	suggestion.ReviewNote = input.ReviewNote
 
-	if err := h.DB.Save(&suggestion).Error; err != nil {
+	if err := h.DB.WithContext(ctx).Save(&suggestion).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update suggestion"})
 		return
 	}
@@ -90,10 +117,14 @@ func (h *SuggestionHandler) Review(c *gin.Context) {
 
 func (h *SuggestionHandler) MySuggestions(c *gin.Context) {
 	userID := c.GetUint("userID")
+	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	offset := parseOffset(c.Query("offset"))
+
 	var suggestions []models.Suggestion
-	if err := h.DB.Where("user_id = ?", userID).
+	if err := h.DB.WithContext(c.Request.Context()).Where("user_id = ?", userID).
 		Preload("Church").
 		Order("created_at DESC").
+		Limit(limit).Offset(offset).
 		Find(&suggestions).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch suggestions"})
 		return

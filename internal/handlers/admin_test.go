@@ -11,9 +11,9 @@ import (
 func TestAdminUserManagement(t *testing.T) {
 	t.Run("Admin can list all registered users", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		adminToken := app.CreateAdmin("Admin", "admin@test.com", "pass123")
-		app.CreateUser("User1", "u1@test.com", "pass123", "Catholic")
-		app.CreateUser("User2", "u2@test.com", "pass123", "Orthodox")
+		adminToken := app.CreateAdmin("Admin", "admin@test.com", "password123")
+		app.CreateUser("User1", "u1@test.com", "password123", "Catholic")
+		app.CreateUser("User2", "u2@test.com", "password123", "Orthodox")
 
 		resp := app.Request("GET", "/api/admin/users", nil, adminToken)
 		if resp.Code != http.StatusOK {
@@ -27,8 +27,8 @@ func TestAdminUserManagement(t *testing.T) {
 
 	t.Run("Admin can promote a loyal user to moderator role", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		adminToken := app.CreateAdmin("Admin", "admin@test.com", "pass123")
-		app.CreateUser("Loyal User", "loyal@test.com", "pass123", "Catholic")
+		adminToken := app.CreateAdmin("Admin", "admin@test.com", "password123")
+		app.CreateUser("Loyal User", "loyal@test.com", "password123", "Catholic")
 
 		// Get user ID
 		resp := app.Request("GET", "/api/admin/users", nil, adminToken)
@@ -52,8 +52,8 @@ func TestAdminUserManagement(t *testing.T) {
 
 	t.Run("Admin can promote a user to admin role", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		adminToken := app.CreateAdmin("Super Admin", "super@test.com", "pass123")
-		app.CreateUser("New Admin", "newadmin@test.com", "pass123", "Catholic")
+		adminToken := app.CreateAdmin("Super Admin", "super@test.com", "password123")
+		app.CreateUser("New Admin", "newadmin@test.com", "password123", "Catholic")
 
 		resp := app.Request("GET", "/api/admin/users", nil, adminToken)
 		users := testutil.ParseJSONArray(resp)
@@ -76,7 +76,7 @@ func TestAdminUserManagement(t *testing.T) {
 
 	t.Run("Regular user cannot access admin user management", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Regular", "reg@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Regular", "reg@test.com", "password123", "Catholic")
 
 		resp := app.Request("GET", "/api/admin/users", nil, token)
 		if resp.Code != http.StatusForbidden {
@@ -86,7 +86,7 @@ func TestAdminUserManagement(t *testing.T) {
 
 	t.Run("Moderator cannot access admin user management", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		modToken := app.CreateModerator("Mod", "mod@test.com", "pass123")
+		modToken := app.CreateModerator("Mod", "mod@test.com", "password123")
 
 		resp := app.Request("GET", "/api/admin/users", nil, modToken)
 		if resp.Code != http.StatusForbidden {
@@ -98,7 +98,7 @@ func TestAdminUserManagement(t *testing.T) {
 func TestAdminChurchManagement(t *testing.T) {
 	t.Run("Admin can verify a user-submitted church", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		adminToken := app.CreateAdmin("Admin", "admin@test.com", "pass123")
+		adminToken := app.CreateAdmin("Admin", "admin@test.com", "password123")
 		churchID := app.SeedChurch("Unverified Church", "Catholic", "Addr", -23.0, -46.0)
 
 		// Set as unverified
@@ -112,7 +112,7 @@ func TestAdminChurchManagement(t *testing.T) {
 
 	t.Run("Admin can delete a church entry", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		adminToken := app.CreateAdmin("Admin", "admindel@test.com", "pass123")
+		adminToken := app.CreateAdmin("Admin", "admindel@test.com", "password123")
 		churchID := app.SeedChurch("To Delete", "Catholic", "Addr", -23.0, -46.0)
 
 		resp := app.Request("DELETE", fmt.Sprintf("/api/admin/churches/%d", churchID), nil, adminToken)
@@ -121,7 +121,7 @@ func TestAdminChurchManagement(t *testing.T) {
 		}
 
 		// Verify it's gone
-		userToken := app.CreateUser("Checker", "checker@test.com", "pass123", "Catholic")
+		userToken := app.CreateUser("Checker", "checker@test.com", "password123", "Catholic")
 		resp = app.Request("GET", fmt.Sprintf("/api/churches/%d", churchID), nil, userToken)
 		if resp.Code != http.StatusNotFound {
 			t.Errorf("deleted church should return 404, got %d", resp.Code)
@@ -130,7 +130,7 @@ func TestAdminChurchManagement(t *testing.T) {
 
 	t.Run("Regular user cannot verify or delete churches via admin routes", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Regular", "regadmin@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Regular", "regadmin@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Protected", "Catholic", "Addr", -23.0, -46.0)
 
 		resp := app.Request("PUT", fmt.Sprintf("/api/admin/churches/%d/verify", churchID), nil, token)

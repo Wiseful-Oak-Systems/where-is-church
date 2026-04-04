@@ -11,7 +11,7 @@ import (
 func TestChurchCreation(t *testing.T) {
 	t.Run("Authenticated user can register a new church with location data", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Creator", "creator@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Creator", "creator@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/churches", map[string]any{
 			"name": "Nossa Senhora Aparecida", "denomination": "Catholic",
@@ -29,7 +29,7 @@ func TestChurchCreation(t *testing.T) {
 
 	t.Run("Church created by regular user is not automatically verified", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Regular", "regular@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Regular", "regular@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/churches", map[string]any{
 			"name": "Test Church", "address": "Address",
@@ -44,7 +44,7 @@ func TestChurchCreation(t *testing.T) {
 
 	t.Run("Church created by moderator is automatically verified", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateModerator("Mod", "mod@test.com", "pass123")
+		token := app.CreateModerator("Mod", "mod@test.com", "password123")
 
 		resp := app.Request("POST", "/api/churches", map[string]any{
 			"name": "Mod Church", "address": "Mod Address",
@@ -59,7 +59,7 @@ func TestChurchCreation(t *testing.T) {
 
 	t.Run("Church created by admin is automatically verified", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateAdmin("Admin", "admin@test.com", "pass123")
+		token := app.CreateAdmin("Admin", "admin@test.com", "password123")
 
 		resp := app.Request("POST", "/api/churches", map[string]any{
 			"name": "Admin Church", "address": "Admin Address",
@@ -74,7 +74,7 @@ func TestChurchCreation(t *testing.T) {
 
 	t.Run("Church defaults denomination to Catholic when not specified", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("User", "u@test.com", "pass123", "Catholic")
+		token := app.CreateUser("User", "u@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/churches", map[string]any{
 			"name": "Default Denom", "address": "Addr",
@@ -89,7 +89,7 @@ func TestChurchCreation(t *testing.T) {
 
 	t.Run("Church creation requires name, address, and coordinates", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("User", "req@test.com", "pass123", "Catholic")
+		token := app.CreateUser("User", "req@test.com", "password123", "Catholic")
 
 		// Missing name
 		resp := app.Request("POST", "/api/churches", map[string]any{
@@ -104,7 +104,7 @@ func TestChurchCreation(t *testing.T) {
 func TestChurchListing(t *testing.T) {
 	t.Run("User can list all churches", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("User", "list@test.com", "pass123", "Catholic")
+		token := app.CreateUser("User", "list@test.com", "password123", "Catholic")
 		app.SeedChurch("Church A", "Catholic", "Addr A", -23.0, -46.0)
 		app.SeedChurch("Church B", "Orthodox", "Addr B", -23.1, -46.1)
 
@@ -120,7 +120,7 @@ func TestChurchListing(t *testing.T) {
 
 	t.Run("User can filter churches by denomination", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("User", "filter@test.com", "pass123", "Catholic")
+		token := app.CreateUser("User", "filter@test.com", "password123", "Catholic")
 		app.SeedChurch("Catholic Church", "Catholic", "Addr", -23.0, -46.0)
 		app.SeedChurch("Orthodox Church", "Orthodox", "Addr", -23.1, -46.1)
 
@@ -137,7 +137,7 @@ func TestChurchListing(t *testing.T) {
 func TestChurchDetail(t *testing.T) {
 	t.Run("User can view detailed information about a specific church", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("User", "detail@test.com", "pass123", "Catholic")
+		token := app.CreateUser("User", "detail@test.com", "password123", "Catholic")
 		id := app.SeedChurch("São Bento", "Catholic", "Largo de São Bento", -23.534, -46.634)
 
 		resp := app.Request("GET", fmt.Sprintf("/api/churches/%d", id), nil, token)
@@ -152,7 +152,7 @@ func TestChurchDetail(t *testing.T) {
 
 	t.Run("Requesting a non-existent church returns 404", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("User", "404@test.com", "pass123", "Catholic")
+		token := app.CreateUser("User", "404@test.com", "password123", "Catholic")
 
 		resp := app.Request("GET", "/api/churches/99999", nil, token)
 		if resp.Code != http.StatusNotFound {
@@ -164,7 +164,7 @@ func TestChurchDetail(t *testing.T) {
 func TestChurchEditing(t *testing.T) {
 	t.Run("Moderator can edit church details", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		modToken := app.CreateModerator("Mod", "mod@test.com", "pass123")
+		modToken := app.CreateModerator("Mod", "mod@test.com", "password123")
 		id := app.SeedChurch("Old Name", "Catholic", "Old Addr", -23.0, -46.0)
 
 		resp := app.Request("PUT", fmt.Sprintf("/api/churches/%d", id), map[string]any{
@@ -182,7 +182,7 @@ func TestChurchEditing(t *testing.T) {
 
 	t.Run("Regular user cannot edit church details", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Regular", "norole@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Regular", "norole@test.com", "password123", "Catholic")
 		id := app.SeedChurch("Church", "Catholic", "Addr", -23.0, -46.0)
 
 		resp := app.Request("PUT", fmt.Sprintf("/api/churches/%d", id), map[string]any{
@@ -198,7 +198,7 @@ func TestChurchEditing(t *testing.T) {
 func TestMassScheduleManagement(t *testing.T) {
 	t.Run("Moderator can add a mass schedule to a church", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		modToken := app.CreateModerator("Mod", "modsch@test.com", "pass123")
+		modToken := app.CreateModerator("Mod", "modsch@test.com", "password123")
 		churchID := app.SeedChurch("Schedule Church", "Catholic", "Addr", -23.0, -46.0)
 
 		resp := app.Request("POST", fmt.Sprintf("/api/churches/%d/schedules", churchID), map[string]any{
@@ -217,7 +217,7 @@ func TestMassScheduleManagement(t *testing.T) {
 
 	t.Run("Regular user cannot add mass schedules", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Regular", "regsch@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Regular", "regsch@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Church", "Catholic", "Addr", -23.0, -46.0)
 
 		resp := app.Request("POST", fmt.Sprintf("/api/churches/%d/schedules", churchID), map[string]any{
@@ -231,7 +231,7 @@ func TestMassScheduleManagement(t *testing.T) {
 
 	t.Run("Church detail includes its mass schedule", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		modToken := app.CreateModerator("Mod", "modsee@test.com", "pass123")
+		modToken := app.CreateModerator("Mod", "modsee@test.com", "password123")
 		churchID := app.SeedChurch("Full Church", "Catholic", "Addr", -23.0, -46.0)
 
 		// Add two schedules

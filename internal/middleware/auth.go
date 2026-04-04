@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +10,8 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
 )
+
+const JWTIssuer = "where-is-church"
 
 type Claims struct {
 	UserID       uint        `json:"user_id"`
@@ -25,6 +28,7 @@ func GenerateToken(user *models.User, secret string, expiryHours int) (string, e
 		Role:         user.Role,
 		Denomination: user.Denomination,
 		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    JWTIssuer,
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expiryHours) * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
@@ -33,11 +37,22 @@ func GenerateToken(user *models.User, secret string, expiryHours int) (string, e
 	return token.SignedString([]byte(secret))
 }
 
+// SetAuthCookie sets the JWT cookie with proper security flags.
+func SetAuthCookie(c *gin.Context, token string, maxAge int, secure bool) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("token", token, maxAge, "/", "", secure, true)
+}
+
+// ClearAuthCookie removes the JWT cookie.
+func ClearAuthCookie(c *gin.Context, secure bool) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("token", "", -1, "/", "", secure, true)
+}
+
 func AuthRequired(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		tokenStr := ""
 
-		// Check cookie first, then Authorization header
 		if cookie, err := c.Cookie("token"); err == nil {
 			tokenStr = cookie
 		} else {
@@ -48,7 +63,6 @@ func AuthRequired(secret string) gin.HandlerFunc {
 		}
 
 		if tokenStr == "" {
-			// For API calls, return 401. For page requests, redirect to login.
 			if strings.HasPrefix(c.Request.URL.Path, "/api/") {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 			} else {
@@ -60,10 +74,13 @@ func AuthRequired(secret string) gin.HandlerFunc {
 
 		claims := &Claims{}
 		token, err := jwt.ParseWithClaims(tokenStr, claims, func(t *jwt.Token) (any, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			}
 			return []byte(secret), nil
-		})
+		}, jwt.WithIssuer(JWTIssuer))
 		if err != nil || !token.Valid {
-			c.SetCookie("token", "", -1, "/", "", false, true)
+			ClearAuthCookie(c, false)
 			if strings.HasPrefix(c.Request.URL.Path, "/api/") {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			} else {

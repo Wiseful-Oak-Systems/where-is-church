@@ -11,7 +11,7 @@ import (
 func TestSuggestionSubmission(t *testing.T) {
 	t.Run("User can suggest a new church to be added to the system", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Suggest User", "suggest@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Suggest User", "suggest@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type":    "new_church",
@@ -32,7 +32,7 @@ func TestSuggestionSubmission(t *testing.T) {
 
 	t.Run("User can suggest a correction to an existing church", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Correct User", "correct@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Correct User", "correct@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Wrong Info Church", "Catholic", "Old Addr", -23.0, -46.0)
 
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
@@ -48,7 +48,7 @@ func TestSuggestionSubmission(t *testing.T) {
 
 	t.Run("User can suggest a mass schedule update", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Schedule User", "sched@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Schedule User", "sched@test.com", "password123", "Catholic")
 		churchID := app.SeedChurch("Schedule Church", "Catholic", "Addr", -23.0, -46.0)
 
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
@@ -64,7 +64,7 @@ func TestSuggestionSubmission(t *testing.T) {
 
 	t.Run("User can submit general feedback about the platform", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Feedback User", "feedback@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Feedback User", "feedback@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type":    "general",
@@ -78,7 +78,7 @@ func TestSuggestionSubmission(t *testing.T) {
 
 	t.Run("Suggestion requires type and content", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("Empty User", "empty@test.com", "pass123", "Catholic")
+		token := app.CreateUser("Empty User", "empty@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general",
@@ -92,7 +92,7 @@ func TestSuggestionSubmission(t *testing.T) {
 func TestUserSuggestionHistory(t *testing.T) {
 	t.Run("User can view their own submitted suggestions and their statuses", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		token := app.CreateUser("History User", "histsugg@test.com", "pass123", "Catholic")
+		token := app.CreateUser("History User", "histsugg@test.com", "password123", "Catholic")
 
 		app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "First suggestion",
@@ -115,8 +115,8 @@ func TestUserSuggestionHistory(t *testing.T) {
 func TestSuggestionReview(t *testing.T) {
 	t.Run("Moderator can review and approve a user suggestion", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		userToken := app.CreateUser("Submitter", "sub@test.com", "pass123", "Catholic")
-		modToken := app.CreateModerator("Reviewer", "reviewer@test.com", "pass123")
+		userToken := app.CreateUser("Submitter", "sub@test.com", "password123", "Catholic")
+		modToken := app.CreateModerator("Reviewer", "reviewer@test.com", "password123")
 
 		// User submits suggestion
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
@@ -145,8 +145,8 @@ func TestSuggestionReview(t *testing.T) {
 
 	t.Run("Moderator can reject a suggestion with a reason", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		userToken := app.CreateUser("SubReject", "reject@test.com", "pass123", "Catholic")
-		modToken := app.CreateModerator("ModReject", "modreject@test.com", "pass123")
+		userToken := app.CreateUser("SubReject", "reject@test.com", "password123", "Catholic")
+		modToken := app.CreateModerator("ModReject", "modreject@test.com", "password123")
 
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "Something invalid",
@@ -170,7 +170,7 @@ func TestSuggestionReview(t *testing.T) {
 
 	t.Run("Regular user cannot review suggestions", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		userToken := app.CreateUser("NoReview", "noreview@test.com", "pass123", "Catholic")
+		userToken := app.CreateUser("NoReview", "noreview@test.com", "password123", "Catholic")
 
 		resp := app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "Some suggestion",
@@ -189,8 +189,8 @@ func TestSuggestionReview(t *testing.T) {
 
 	t.Run("Moderator can list all suggestions filtered by status", func(t *testing.T) {
 		app := testutil.NewTestApp(t)
-		userToken := app.CreateUser("Lister", "lister@test.com", "pass123", "Catholic")
-		modToken := app.CreateModerator("ModList", "modlist@test.com", "pass123")
+		userToken := app.CreateUser("Lister", "lister@test.com", "password123", "Catholic")
+		modToken := app.CreateModerator("ModList", "modlist@test.com", "password123")
 
 		app.Request("POST", "/api/suggestions", map[string]any{
 			"type": "general", "content": "Pending one",
