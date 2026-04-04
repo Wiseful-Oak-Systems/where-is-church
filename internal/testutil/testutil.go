@@ -46,6 +46,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		&models.Attachment{},
 		&models.AuditLog{},
 		&models.UserReputation{},
+		&models.ChurchConfirmation{},
 	}
 	for _, m := range allModels {
 		if err := db.AutoMigrate(m); err != nil {
@@ -72,6 +73,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	ownershipH := &handlers.OwnershipHandler{DB: db}
 	adminToolsH := &handlers.AdminToolsHandler{DB: db}
 	reputationH := &handlers.ReputationHandler{DB: db}
+	communityH := &handlers.CommunityHandler{DB: db}
 	testStore, _ := storage.NewLocalStore(t.TempDir())
 	attachmentH := &handlers.AttachmentHandler{DB: db, Store: testStore, MaxSize: 10 * 1024 * 1024}
 
@@ -110,6 +112,8 @@ func NewTestApp(t *testing.T) *TestApp {
 	auth.GET("/my-churches/claims", ownershipH.MyClaims)
 
 	auth.GET("/reputation", reputationH.GetMyReputation)
+	auth.GET("/impact", communityH.ContributionImpact)
+	auth.POST("/churches/:id/confirm", communityH.ConfirmChurch)
 	auth.GET("/leaderboard", reputationH.Leaderboard)
 
 	auth.POST("/attachments", attachmentH.Upload)

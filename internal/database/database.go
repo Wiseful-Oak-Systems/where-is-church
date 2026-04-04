@@ -53,5 +53,6 @@ func runMigrations(db *gorm.DB) error {
 		&models.Attachment{},
 		&models.AuditLog{},
 		&models.UserReputation{},
+		&models.ChurchConfirmation{},
 	)
 }

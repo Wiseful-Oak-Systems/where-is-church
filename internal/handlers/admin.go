@@ -99,7 +99,7 @@ func (h *AdminHandler) VerifyChurch(c *gin.Context) {
 	now := time.Now()
 
 	if err := h.DB.WithContext(c.Request.Context()).Model(&models.Church{}).Where("id = ?", churchID).
-		Updates(map[string]any{"verified": true, "last_verified": now}).Error; err != nil {
+		Updates(map[string]any{"verified": true, "last_verified": now, "data_quality": models.QualityOfficiallyVerified}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify church"})
 		return
 	}
