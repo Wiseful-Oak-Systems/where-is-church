@@ -50,6 +50,18 @@ fmt:
 	gofmt -s -w .
 	goimports -w .
 
+## migrate-up: Run database migrations (requires golang-migrate CLI)
+migrate-up:
+	migrate -path migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)" up
+
+## migrate-down: Rollback last migration
+migrate-down:
+	migrate -path migrations -database "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)" down 1
+
+## migrate-create: Create a new migration (usage: make migrate-create NAME=add_feature)
+migrate-create:
+	migrate create -ext sql -dir migrations -seq $(NAME)
+
 ## clean: Remove build artifacts
 clean:
 	rm -rf bin/ server coverage.out coverage.*

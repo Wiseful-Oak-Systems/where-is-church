@@ -16,6 +16,12 @@
       data-user-role="{{.userRole}}"
       data-denomination="{{.denomination}}">
 
+  <!-- Skip to content for keyboard users -->
+  <a href="#map" class="skip-link">Skip to map</a>
+
+  <!-- Screen reader announcements for map interactions -->
+  <div id="map-announcer" aria-live="polite" class="sr-only"></div>
+
   <!-- Navigation -->
   <nav class="navbar" role="navigation" aria-label="Main navigation">
     <div class="navbar-brand">
@@ -48,8 +54,29 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar" aria-label="Church search">
 
+      <!-- Drag handle for mobile bottom sheet -->
+      <div class="bottom-sheet-handle" aria-hidden="true"></div>
+
       <div class="sidebar-section">
         <h2 class="sidebar-heading">Find a Church</h2>
+
+        <!-- Address / Place search -->
+        <div class="form-group" style="position:relative">
+          <label for="address-search" class="form-label">Search by place</label>
+          <div class="search-input-group">
+            <input
+              type="search"
+              id="address-search"
+              class="form-input"
+              placeholder="City, address, or place name..."
+              autocomplete="off"
+              aria-describedby="search-hint"
+            >
+            <button id="address-search-btn" class="btn btn-primary" type="button" aria-label="Search">&#128269;</button>
+          </div>
+          <ul id="address-results" class="search-results" role="listbox" hidden aria-label="Search results"></ul>
+          <span id="search-hint" class="sr-only">Type a location and press Enter or click Search</span>
+        </div>
 
         <!-- Denomination filter -->
         <div class="form-group">

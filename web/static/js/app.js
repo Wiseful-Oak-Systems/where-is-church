@@ -126,16 +126,31 @@ async function updateProfile(name, denomination, latitude, longitude) {
 function initMap(centerLat = 20, centerLng = 0, zoom = 2) {
     if (map) return;
 
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
     map = L.map('map', {
         center: [centerLat, centerLng],
         zoom,
         zoomControl: true,
+        tap: false, // prevents 300ms delay on mobile Android
     });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const lightTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
-    }).addTo(map);
+    });
+    const darkTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 19,
+    });
+
+    (isDark ? darkTiles : lightTiles).addTo(map);
+
+    // Swap tiles on dark mode change
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        map.eachLayer(l => { if (l instanceof L.TileLayer) map.removeLayer(l); });
+        (e.matches ? darkTiles : lightTiles).addTo(map);
+    });
 
     markerLayer = L.layerGroup().addTo(map);
 
@@ -171,12 +186,13 @@ function updateLocationMarker(lat, lng) {
 }
 
 function useMyLocation() {
+    const btn = document.getElementById('use-my-location');
     if (!navigator.geolocation) {
         showToast('Geolocation is not supported by your browser.', 'error');
         return;
     }
 
-    showToast('Detecting your location...', 'info');
+    if (btn) { btn.classList.add('btn--loading'); btn.disabled = true; }
 
     navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -186,14 +202,16 @@ function useMyLocation() {
             updateLocationMarker(lat, lng);
             triggerSearch();
             showToast('Location found!', 'success');
+            if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
         },
         (err) => {
             const messages = {
-                1: 'Location access denied. Click on the map to set a location.',
-                2: 'Location unavailable. Try again or click on the map.',
+                1: 'Location access denied. Search a place or click on the map.',
+                2: 'Location unavailable. Try again or search a place.',
                 3: 'Location request timed out.',
             };
             showToast(messages[err.code] || 'Could not get your location.', 'error');
+            if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
         },
         { timeout: 10000, maximumAge: 60000 }
     );
@@ -203,6 +221,7 @@ function useMyLocation() {
 
 async function searchChurches(lat, lng, radius, denomination) {
     clearMarkers();
+    showSkeletonCards();
 
     const params = new URLSearchParams({ lat, lng, radius });
     if (denomination && denomination !== 'all') {
@@ -251,33 +270,42 @@ function clearMarkers() {
 function placeChurchMarker(church) {
     if (!markerLayer) return;
 
+    const denomClass = 'marker-' + (church.denomination || 'default').toLowerCase();
     const icon = L.divIcon({
-        className: 'church-marker',
-        html: `<div class="church-marker__icon" title="${escapeHtml(church.name)}">&#9962;</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -34],
+        className: '',
+        html: `<div class="church-marker ${denomClass}" title="${escapeHtml(church.name)}"><span>&#9962;</span></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28],
+        popupAnchor: [0, -30],
     });
 
-    const distanceText = church.distance != null
-        ? `${(church.distance / 1000).toFixed(1)} km away`
-        : '';
+    const distKm = church.distance != null ? church.distance : null;
+    const distanceText = distKm != null ? `${distKm.toFixed(1)} km away` : '';
+    const massCount = (church.schedules || []).length;
+    const directionsUrl = `https://www.openstreetmap.org/directions?from=&to=${church.latitude},${church.longitude}`;
 
     const popupContent = `
         <div class="church-popup">
-            <h3 class="church-popup__name">${escapeHtml(church.name)}</h3>
-            <p class="church-popup__denomination">${escapeHtml(church.denomination || 'Unknown denomination')}</p>
-            ${distanceText ? `<p class="church-popup__distance">${escapeHtml(distanceText)}</p>` : ''}
-            ${church.address ? `<p class="church-popup__address">${escapeHtml(church.address)}</p>` : ''}
-            <div class="church-popup__actions">
-                <button class="btn btn--primary btn--sm" onclick="loadChurchDetail('${church.id}')">View Details</button>
-                <button class="btn btn--secondary btn--sm" onclick="checkIn('${church.id}')">Check In</button>
+            <h3 class="popup-title">${escapeHtml(church.name)}</h3>
+            <span class="denomination-badge denomination-badge--${(church.denomination || 'other').toLowerCase()}">${escapeHtml(church.denomination || 'Unknown')}</span>
+            ${distanceText ? `<p class="popup-distance">${escapeHtml(distanceText)}</p>` : ''}
+            ${church.address ? `<p class="popup-address">${escapeHtml(church.address)}</p>` : ''}
+            ${massCount > 0 ? `<p class="popup-address">${massCount} scheduled service${massCount !== 1 ? 's' : ''}</p>` : ''}
+            <a href="${directionsUrl}" target="_blank" rel="noopener" class="directions-link">&#x2794; Get directions</a>
+            <div style="margin-top:.5rem;display:flex;gap:.3rem">
+                <a href="/church/${church.id}" class="btn btn-sm btn-primary popup-link">View</a>
+                <button class="btn btn-sm btn-outline" onclick="checkIn('${church.id}')">Check In</button>
             </div>
         </div>
     `;
 
-    const marker = L.marker([church.latitude, church.longitude], { icon })
+    const marker = L.marker([church.latitude, church.longitude], {
+            icon,
+            keyboard: true,
+            alt: `${church.name} - ${church.denomination}${distanceText ? ', ' + distanceText : ''}`,
+        })
         .bindPopup(popupContent, { maxWidth: 280 })
+        .on('popupopen', () => announceToScreenReader(`${church.name}, ${church.denomination}${distanceText ? ', ' + distanceText : ''}`))
         .addTo(markerLayer);
 
     marker.on('click', () => {
@@ -618,6 +646,167 @@ function escapeHtml(str) {
         .replace(/'/g, '&#39;');
 }
 
+// ─── Screen Reader Announcements ─────────────────────────────────────────────
+
+function announceToScreenReader(message) {
+    const el = document.getElementById('map-announcer');
+    if (el) { el.textContent = message; }
+}
+
+// ─── Skeleton Loading ────────────────────────────────────────────────────────
+
+function showSkeletonCards() {
+    const list = document.getElementById('church-list');
+    if (!list) return;
+    list.innerHTML = Array(3).fill('<div class="skeleton skeleton-card" aria-hidden="true"></div>').join('');
+}
+
+// ─── Address / Place Search (Nominatim) ──────────────────────────────────────
+
+let searchTimeout = null;
+
+function initAddressSearch() {
+    const input = document.getElementById('address-search');
+    const btn = document.getElementById('address-search-btn');
+    const resultsList = document.getElementById('address-results');
+    if (!input) return;
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); geocodeAddress(input.value); }
+    });
+    if (btn) btn.addEventListener('click', () => geocodeAddress(input.value));
+
+    // Live suggestions with debounce
+    input.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        const q = input.value.trim();
+        if (q.length < 3) { if (resultsList) resultsList.hidden = true; return; }
+        searchTimeout = setTimeout(() => geocodeSuggestions(q), 300);
+    });
+
+    // Close results on outside click
+    document.addEventListener('click', (e) => {
+        if (resultsList && !resultsList.contains(e.target) && e.target !== input) {
+            resultsList.hidden = true;
+        }
+    });
+}
+
+async function geocodeSuggestions(query) {
+    const resultsList = document.getElementById('address-results');
+    if (!resultsList) return;
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5`, {
+            headers: { 'Accept': 'application/json' },
+        });
+        const results = await res.json();
+        if (!results.length) { resultsList.hidden = true; return; }
+
+        resultsList.innerHTML = results.map((r, i) =>
+            `<li class="search-result-item" role="option" tabindex="0" data-lat="${r.lat}" data-lon="${r.lon}">${escapeHtml(r.display_name)}</li>`
+        ).join('');
+        resultsList.hidden = false;
+
+        resultsList.querySelectorAll('.search-result-item').forEach(item => {
+            const handler = () => {
+                const lat = parseFloat(item.dataset.lat);
+                const lon = parseFloat(item.dataset.lon);
+                document.getElementById('address-search').value = item.textContent;
+                resultsList.hidden = true;
+                setCustomLocation(lat, lon);
+                map.setView([lat, lon], 13);
+            };
+            item.addEventListener('click', handler);
+            item.addEventListener('keydown', (e) => { if (e.key === 'Enter') handler(); });
+        });
+    } catch (err) {
+        resultsList.hidden = true;
+    }
+}
+
+async function geocodeAddress(query) {
+    if (!query || query.trim().length < 2) return;
+    const resultsList = document.getElementById('address-results');
+    if (resultsList) resultsList.hidden = true;
+
+    try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
+        const results = await res.json();
+        if (!results.length) {
+            showToast('Location not found. Try a different search.', 'warning');
+            return;
+        }
+        const { lat, lon, display_name } = results[0];
+        setCustomLocation(parseFloat(lat), parseFloat(lon));
+        map.setView([parseFloat(lat), parseFloat(lon)], 13);
+        showToast(`Found: ${display_name.split(',').slice(0, 2).join(',')}`, 'success');
+    } catch (err) {
+        showToast('Search failed. Please try again.', 'error');
+    }
+}
+
+// ─── Bottom Sheet (Mobile) ───────────────────────────────────────────────────
+
+function initBottomSheet() {
+    if (window.innerWidth > 768) return;
+
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    sidebar.classList.add('bottom-sheet');
+
+    const handle = sidebar.querySelector('.bottom-sheet-handle');
+    if (!handle) return;
+
+    let startY = 0, startTranslate = 0, currentTranslate = 0, isDragging = false;
+    const maxH = sidebar.offsetHeight || window.innerHeight * 0.85;
+    const collapsed = maxH - 110;
+    const half = maxH * 0.35;
+
+    handle.addEventListener('pointerdown', (e) => {
+        isDragging = true;
+        startY = e.clientY;
+        const transform = getComputedStyle(sidebar).transform;
+        const matrix = new DOMMatrixReadOnly(transform);
+        startTranslate = matrix.m42;
+        sidebar.style.transition = 'none';
+        handle.setPointerCapture(e.pointerId);
+    });
+
+    handle.addEventListener('pointermove', (e) => {
+        if (!isDragging) return;
+        const dy = e.clientY - startY;
+        currentTranslate = Math.max(0, Math.min(maxH, startTranslate + dy));
+        sidebar.style.transform = `translateY(${currentTranslate}px)`;
+    });
+
+    handle.addEventListener('pointerup', () => {
+        if (!isDragging) return;
+        isDragging = false;
+        sidebar.style.transition = '';
+
+        // Snap to nearest state
+        if (currentTranslate < half * 0.5) {
+            sidebar.classList.add('full');
+            sidebar.classList.remove('half');
+        } else if (currentTranslate < collapsed * 0.7) {
+            sidebar.classList.add('half');
+            sidebar.classList.remove('full');
+        } else {
+            sidebar.classList.remove('half', 'full');
+        }
+        sidebar.style.transform = '';
+    });
+
+    // Tap handle to toggle half/collapsed
+    handle.addEventListener('click', () => {
+        if (sidebar.classList.contains('half') || sidebar.classList.contains('full')) {
+            sidebar.classList.remove('half', 'full');
+        } else {
+            sidebar.classList.add('half');
+        }
+    });
+}
+
 // ─── App Initialization ───────────────────────────────────────────────────────
 
 async function init() {
@@ -630,8 +819,10 @@ async function init() {
         initLocationBtn();
         initSidebarToggle();
         initSuggestionForm();
+        initAddressSearch();
+        initBottomSheet();
 
-        // Try to get user's location automatically on load
+        // Auto-detect location on first load
         useMyLocation();
     }
 

@@ -24,6 +24,17 @@ type SuggestionHandler struct {
 	DB *gorm.DB
 }
 
+// Create godoc
+// @Summary      Submit a suggestion
+// @Description  Submit a new church, edit correction, schedule update, or general feedback
+// @Tags         suggestions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      object  true  "Suggestion data (type: new_church|edit_church|schedule|general, content, church_id)"
+// @Success      201   {object}  models.Suggestion
+// @Failure      400   {object}  map[string]string
+// @Router       /suggestions [post]
 func (h *SuggestionHandler) Create(c *gin.Context) {
 	userID := c.GetUint("userID")
 
@@ -78,6 +89,18 @@ func (h *SuggestionHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, suggestions)
 }
 
+// Review godoc
+// @Summary      Review a suggestion
+// @Description  Approve or reject a user suggestion. Requires moderator or admin role.
+// @Tags         suggestions
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  int     true  "Suggestion ID"
+// @Param        body  body  object  true  "Review data (status: approved|rejected, review_note)"
+// @Success      200   {object}  models.Suggestion
+// @Failure      403   {object}  map[string]string
+// @Router       /suggestions/{id} [put]
 func (h *SuggestionHandler) Review(c *gin.Context) {
 	id := c.Param("id")
 	reviewerID := c.GetUint("userID")

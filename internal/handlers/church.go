@@ -25,6 +25,18 @@ type ChurchHandler struct {
 	DB *gorm.DB
 }
 
+// SearchNearby godoc
+// @Summary      Search churches by location
+// @Description  Find churches within a radius using Haversine distance calculation
+// @Tags         churches
+// @Produce      json
+// @Security     BearerAuth
+// @Param        lat           query  number  true   "Latitude (-90 to 90)"
+// @Param        lng           query  number  true   "Longitude (-180 to 180)"
+// @Param        radius        query  number  false  "Search radius in km (default 10, max 100)"
+// @Param        denomination  query  string  false  "Filter by denomination"
+// @Success      200  {array}  object
+// @Router       /churches/search [get]
 func (h *ChurchHandler) SearchNearby(c *gin.Context) {
 	lat, err := strconv.ParseFloat(c.Query("lat"), 64)
 	if err != nil || lat < -90 || lat > 90 {
@@ -80,6 +92,16 @@ func (h *ChurchHandler) SearchNearby(c *gin.Context) {
 	c.JSON(http.StatusOK, churches)
 }
 
+// GetByID godoc
+// @Summary      Get church details
+// @Description  Returns full church info including mass/confession/adoration schedules
+// @Tags         churches
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id  path  int  true  "Church ID"
+// @Success      200  {object}  models.Church
+// @Failure      404  {object}  map[string]string
+// @Router       /churches/{id} [get]
 func (h *ChurchHandler) GetByID(c *gin.Context) {
 	id := c.Param("id")
 	var church models.Church
@@ -101,6 +123,17 @@ type CreateChurchInput struct {
 	Description  string  `json:"description" binding:"max=2000"`
 }
 
+// Create godoc
+// @Summary      Add a new church
+// @Description  Create a church entry. Auto-verified if created by moderator or admin.
+// @Tags         churches
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      CreateChurchInput  true  "Church data"
+// @Success      201   {object}  models.Church
+// @Failure      400   {object}  map[string]string
+// @Router       /churches [post]
 func (h *ChurchHandler) Create(c *gin.Context) {
 	var input CreateChurchInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -222,6 +255,19 @@ func (h *ChurchHandler) Update(c *gin.Context) {
 	c.JSON(http.StatusOK, church)
 }
 
+// AddSchedule godoc
+// @Summary      Add a schedule entry to a church
+// @Description  Add mass, confession, or adoration schedule. Requires moderator or admin role.
+// @Tags         churches
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        id    path  int     true  "Church ID"
+// @Param        body  body  object  true  "Schedule data (type, day_of_week, start_time, end_time, language, notes)"
+// @Success      201   {object}  models.MassSchedule
+// @Failure      400   {object}  map[string]string
+// @Failure      403   {object}  map[string]string
+// @Router       /churches/{id}/schedules [post]
 func (h *ChurchHandler) AddSchedule(c *gin.Context) {
 	churchID, err := strconv.ParseUint(c.Param("id"), 10, 32)
 	if err != nil {

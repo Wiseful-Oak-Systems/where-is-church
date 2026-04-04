@@ -16,6 +16,18 @@ type CheckInHandler struct {
 	DB *gorm.DB
 }
 
+// Create godoc
+// @Summary      Check in at a church
+// @Description  Record attendance at a church (Foursquare-style). Duplicate check-ins within 2 hours are prevented.
+// @Tags         checkins
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        body  body      object  true  "Check-in data (church_id, notes)"
+// @Success      201   {object}  models.CheckIn
+// @Failure      404   {object}  map[string]string  "Church not found"
+// @Failure      409   {object}  map[string]string  "Already checked in recently"
+// @Router       /checkins [post]
 func (h *CheckInHandler) Create(c *gin.Context) {
 	userID := c.GetUint("userID")
 
@@ -98,6 +110,14 @@ func (h *CheckInHandler) ChurchCheckIns(c *gin.Context) {
 	c.JSON(http.StatusOK, checkins)
 }
 
+// UserStats godoc
+// @Summary      Get user attendance statistics
+// @Description  Returns total check-ins, last 30 days count, and top 5 most visited churches
+// @Tags         checkins
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  map[string]any
+// @Router       /checkins/stats [get]
 func (h *CheckInHandler) UserStats(c *gin.Context) {
 	userID := c.GetUint("userID")
 	ctx := c.Request.Context()

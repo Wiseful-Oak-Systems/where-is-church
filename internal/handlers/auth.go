@@ -29,6 +29,17 @@ type LoginInput struct {
 	Password string `json:"password" binding:"required"`
 }
 
+// Register godoc
+// @Summary      Register a new user
+// @Description  Creates a new account with name, email, password, and optional denomination (defaults to Catholic)
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      RegisterInput  true  "Registration data"
+// @Success      201   {object}  map[string]any
+// @Failure      400   {object}  map[string]string
+// @Failure      409   {object}  map[string]string
+// @Router       /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var input RegisterInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -81,6 +92,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	})
 }
 
+// Login godoc
+// @Summary      Authenticate user
+// @Description  Login with email and password, returns JWT token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      LoginInput  true  "Login credentials"
+// @Success      200   {object}  map[string]any
+// @Failure      401   {object}  map[string]string
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var input LoginInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -119,6 +140,15 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 
+// Me godoc
+// @Summary      Get current user profile
+// @Description  Returns the authenticated user's profile data
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  models.User
+// @Failure      401  {object}  map[string]string
+// @Router       /auth/me [get]
 func (h *AuthHandler) Me(c *gin.Context) {
 	userID := c.GetUint("userID")
 	var user models.User
@@ -129,6 +159,16 @@ func (h *AuthHandler) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, user)
 }
 
+// UpdateProfile godoc
+// @Summary      Update user profile
+// @Description  Update name, denomination, and/or location coordinates
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200  {object}  models.User
+// @Failure      400  {object}  map[string]string
+// @Router       /auth/profile [put]
 func (h *AuthHandler) UpdateProfile(c *gin.Context) {
 	userID := c.GetUint("userID")
 
