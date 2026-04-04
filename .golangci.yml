@@ -31,3 +31,4 @@ linters:
           - gosec
           - errcheck
           - goconst
+          - unparam

@@ -15,6 +15,7 @@ import (
 	"github.com/wiseful-oak-systems/where-is-church/internal/handlers"
 	"github.com/wiseful-oak-systems/where-is-church/internal/middleware"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
+	"github.com/wiseful-oak-systems/where-is-church/internal/storage"
 )
 
 func main() {
@@ -29,6 +30,11 @@ func main() {
 
 	db := database.Connect(cfg)
 
+	store, err := storage.New(cfg)
+	if err != nil {
+		log.Fatalf("storage initialization error: %v", err)
+	}
+
 	r := gin.New()
 	r.Use(gin.Recovery())
 	if !cfg.IsProd() {
@@ -37,6 +43,10 @@ func main() {
 
 	r.LoadHTMLGlob("web/templates/*")
 	r.Static("/static", "web/static")
+	// Serve local uploads if using local storage
+	if cfg.StorageDriver == "local" {
+		r.Static("/uploads", cfg.StorageLocalPath)
+	}
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
@@ -56,6 +66,11 @@ func main() {
 	adminH := &handlers.AdminHandler{DB: db}
 	favoriteH := &handlers.FavoriteHandler{DB: db}
 	ownershipH := &handlers.OwnershipHandler{DB: db}
+	attachmentH := &handlers.AttachmentHandler{
+		DB:      db,
+		Store:   store,
+		MaxSize: int64(cfg.MaxUploadSizeMB) * 1024 * 1024,
+	}
 	pageH := &handlers.PageHandler{}
 
 	// Public pages
@@ -104,6 +119,11 @@ func main() {
 	auth.POST("/churches/:id/claim", ownershipH.ClaimChurch)
 	auth.GET("/my-churches", ownershipH.MyChurches)
 	auth.GET("/my-churches/claims", ownershipH.MyClaims)
+
+	auth.POST("/attachments", attachmentH.Upload)
+	auth.GET("/attachments", attachmentH.List)
+	auth.GET("/attachments/:id/download", attachmentH.Download)
+	auth.DELETE("/attachments/:id", attachmentH.Delete)
 
 	// Moderator, Church Owner, Community Manager, and Admin routes
 	mod := auth.Group("/", middleware.RoleRequired(models.RoleModerator, models.RoleChurchOwner, models.RoleCommunityManager, models.RoleAdmin))

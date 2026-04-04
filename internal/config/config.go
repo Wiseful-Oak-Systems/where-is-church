@@ -22,6 +22,16 @@ type Config struct {
 	Port           string
 	CookieSecure   bool
 	Environment    string // "development" or "production"
+
+	// Storage: "local" or "s3"
+	StorageDriver    string
+	StorageLocalPath string // local filesystem path for uploads
+	S3Bucket         string
+	S3Region         string
+	S3Endpoint       string // custom endpoint for S3-compatible services (MinIO, etc.)
+	S3AccessKey      string
+	S3SecretKey      string
+	MaxUploadSizeMB  int
 }
 
 func Load() *Config {
@@ -39,6 +49,15 @@ func Load() *Config {
 		Port:           getEnv("PORT", "8080"),
 		CookieSecure:   getEnvBool("COOKIE_SECURE", false),
 		Environment:    getEnv("ENVIRONMENT", "development"),
+
+		StorageDriver:    getEnv("STORAGE_DRIVER", "local"),
+		StorageLocalPath: getEnv("STORAGE_LOCAL_PATH", "./uploads"),
+		S3Bucket:         getEnv("S3_BUCKET", ""),
+		S3Region:         getEnv("S3_REGION", "us-east-1"),
+		S3Endpoint:       getEnv("S3_ENDPOINT", ""),
+		S3AccessKey:      getEnv("S3_ACCESS_KEY", ""),
+		S3SecretKey:      getEnv("S3_SECRET_KEY", ""),
+		MaxUploadSizeMB:  getEnvInt("MAX_UPLOAD_SIZE_MB", 10),
 	}
 }
 

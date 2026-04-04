@@ -12,6 +12,7 @@ import (
 	"github.com/wiseful-oak-systems/where-is-church/internal/handlers"
 	"github.com/wiseful-oak-systems/where-is-church/internal/middleware"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
+	"github.com/wiseful-oak-systems/where-is-church/internal/storage"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -42,6 +43,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		&models.Suggestion{},
 		&models.Favorite{},
 		&models.ChurchOwnership{},
+		&models.Attachment{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
@@ -63,6 +65,8 @@ func NewTestApp(t *testing.T) *TestApp {
 	adminH := &handlers.AdminHandler{DB: db}
 	favoriteH := &handlers.FavoriteHandler{DB: db}
 	ownershipH := &handlers.OwnershipHandler{DB: db}
+	testStore, _ := storage.NewLocalStore(t.TempDir())
+	attachmentH := &handlers.AttachmentHandler{DB: db, Store: testStore, MaxSize: 10 * 1024 * 1024}
 
 	// Public API
 	api := r.Group("/api")
@@ -97,6 +101,11 @@ func NewTestApp(t *testing.T) *TestApp {
 	auth.POST("/churches/:id/claim", ownershipH.ClaimChurch)
 	auth.GET("/my-churches", ownershipH.MyChurches)
 	auth.GET("/my-churches/claims", ownershipH.MyClaims)
+
+	auth.POST("/attachments", attachmentH.Upload)
+	auth.GET("/attachments", attachmentH.List)
+	auth.GET("/attachments/:id/download", attachmentH.Download)
+	auth.DELETE("/attachments/:id", attachmentH.Delete)
 
 	mod := auth.Group("/", middleware.RoleRequired(models.RoleModerator, models.RoleChurchOwner, models.RoleCommunityManager, models.RoleAdmin))
 	mod.PUT("/churches/:id", churchH.Update)

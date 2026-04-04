@@ -31,6 +31,9 @@ go.work.sum
 /server
 /bin/
 
+# Uploads
+/uploads/
+
 # Editor/IDE
 # .idea/
 # .vscode/
