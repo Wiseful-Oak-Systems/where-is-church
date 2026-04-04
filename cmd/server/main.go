@@ -55,6 +55,7 @@ func main() {
 	suggestionH := &handlers.SuggestionHandler{DB: db}
 	adminH := &handlers.AdminHandler{DB: db}
 	favoriteH := &handlers.FavoriteHandler{DB: db}
+	ownershipH := &handlers.OwnershipHandler{DB: db}
 	pageH := &handlers.PageHandler{}
 
 	// Public pages
@@ -99,19 +100,30 @@ func main() {
 	auth.GET("/churches/:id/favorite", favoriteH.Check)
 	auth.GET("/favorites", favoriteH.List)
 
-	// Moderator + Admin routes
-	mod := auth.Group("/", middleware.RoleRequired(models.RoleModerator, models.RoleAdmin))
+	// Church ownership claims (any authenticated user can claim)
+	auth.POST("/churches/:id/claim", ownershipH.ClaimChurch)
+	auth.GET("/my-churches", ownershipH.MyChurches)
+	auth.GET("/my-churches/claims", ownershipH.MyClaims)
+
+	// Moderator, Church Owner, Community Manager, and Admin routes
+	mod := auth.Group("/", middleware.RoleRequired(models.RoleModerator, models.RoleChurchOwner, models.RoleCommunityManager, models.RoleAdmin))
 	mod.PUT("/churches/:id", churchH.Update)
 	mod.POST("/churches/:id/schedules", churchH.AddSchedule)
 	mod.DELETE("/churches/:id/schedules/:scheduleId", churchH.DeleteSchedule)
 	mod.GET("/suggestions", suggestionH.List)
 	mod.PUT("/suggestions/:id", suggestionH.Review)
 
-	// Admin only routes
+	// Community Manager + Admin routes
+	cmgr := auth.Group("/admin", middleware.RoleRequired(models.RoleCommunityManager, models.RoleAdmin))
+	cmgr.GET("/users", adminH.ListUsers)
+	cmgr.PUT("/users/:id/role", adminH.SetRole)
+	cmgr.GET("/moderators", adminH.ListModerators)
+	cmgr.GET("/claims", ownershipH.ListClaims)
+	cmgr.PUT("/claims/:id", ownershipH.ReviewClaim)
+	cmgr.PUT("/churches/:id/verify", adminH.VerifyChurch)
+
+	// Admin only routes (destructive operations)
 	adm := auth.Group("/admin", middleware.RoleRequired(models.RoleAdmin))
-	adm.GET("/users", adminH.ListUsers)
-	adm.PUT("/users/:id/role", adminH.SetRole)
-	adm.PUT("/churches/:id/verify", adminH.VerifyChurch)
 	adm.DELETE("/churches/:id", adminH.DeleteChurch)
 
 	// Protected pages
@@ -119,7 +131,7 @@ func main() {
 	pages.GET("/", pageH.Index)
 	pages.GET("/church/:id", pageH.ChurchDetail)
 	pages.GET("/profile", pageH.Profile)
-	pages.GET("/admin", middleware.RoleRequired(models.RoleAdmin), pageH.AdminPage)
+	pages.GET("/admin", middleware.RoleRequired(models.RoleCommunityManager, models.RoleAdmin), pageH.AdminPage)
 
 	// Graceful shutdown
 	srv := &http.Server{

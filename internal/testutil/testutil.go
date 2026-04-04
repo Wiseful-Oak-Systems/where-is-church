@@ -41,6 +41,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		&models.CheckIn{},
 		&models.Suggestion{},
 		&models.Favorite{},
+		&models.ChurchOwnership{},
 	); err != nil {
 		t.Fatalf("failed to migrate test database: %v", err)
 	}
@@ -61,6 +62,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	suggestionH := &handlers.SuggestionHandler{DB: db}
 	adminH := &handlers.AdminHandler{DB: db}
 	favoriteH := &handlers.FavoriteHandler{DB: db}
+	ownershipH := &handlers.OwnershipHandler{DB: db}
 
 	// Public API
 	api := r.Group("/api")
@@ -92,17 +94,26 @@ func NewTestApp(t *testing.T) *TestApp {
 	auth.GET("/churches/:id/favorite", favoriteH.Check)
 	auth.GET("/favorites", favoriteH.List)
 
-	mod := auth.Group("/", middleware.RoleRequired(models.RoleModerator, models.RoleAdmin))
+	auth.POST("/churches/:id/claim", ownershipH.ClaimChurch)
+	auth.GET("/my-churches", ownershipH.MyChurches)
+	auth.GET("/my-churches/claims", ownershipH.MyClaims)
+
+	mod := auth.Group("/", middleware.RoleRequired(models.RoleModerator, models.RoleChurchOwner, models.RoleCommunityManager, models.RoleAdmin))
 	mod.PUT("/churches/:id", churchH.Update)
 	mod.POST("/churches/:id/schedules", churchH.AddSchedule)
 	mod.DELETE("/churches/:id/schedules/:scheduleId", churchH.DeleteSchedule)
 	mod.GET("/suggestions", suggestionH.List)
 	mod.PUT("/suggestions/:id", suggestionH.Review)
 
+	cmgr := auth.Group("/admin", middleware.RoleRequired(models.RoleCommunityManager, models.RoleAdmin))
+	cmgr.GET("/users", adminH.ListUsers)
+	cmgr.PUT("/users/:id/role", adminH.SetRole)
+	cmgr.GET("/moderators", adminH.ListModerators)
+	cmgr.GET("/claims", ownershipH.ListClaims)
+	cmgr.PUT("/claims/:id", ownershipH.ReviewClaim)
+	cmgr.PUT("/churches/:id/verify", adminH.VerifyChurch)
+
 	adm := auth.Group("/admin", middleware.RoleRequired(models.RoleAdmin))
-	adm.GET("/users", adminH.ListUsers)
-	adm.PUT("/users/:id/role", adminH.SetRole)
-	adm.PUT("/churches/:id/verify", adminH.VerifyChurch)
 	adm.DELETE("/churches/:id", adminH.DeleteChurch)
 
 	return &TestApp{DB: db, Router: r, Cfg: cfg, T: t}
@@ -143,6 +154,19 @@ func (app *TestApp) CreateModerator(name, email, password string) string {
 	app.T.Helper()
 	app.CreateUser(name, email, password, "Catholic")
 	app.DB.Model(&models.User{}).Where("email = ?", email).Update("role", models.RoleModerator)
+	resp := app.Request("POST", "/api/auth/login", map[string]string{
+		"email": email, "password": password,
+	}, "")
+	var result map[string]any
+	_ = json.Unmarshal(resp.Body.Bytes(), &result)
+	return result["token"].(string)
+}
+
+// CreateCommunityManager registers a user and promotes them to community_manager.
+func (app *TestApp) CreateCommunityManager(name, email, password string) string {
+	app.T.Helper()
+	app.CreateUser(name, email, password, "Catholic")
+	app.DB.Model(&models.User{}).Where("email = ?", email).Update("role", models.RoleCommunityManager)
 	resp := app.Request("POST", "/api/auth/login", map[string]string{
 		"email": email, "password": password,
 	}, "")
