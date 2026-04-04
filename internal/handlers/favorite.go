@@ -13,6 +13,15 @@ type FavoriteHandler struct {
 	DB *gorm.DB
 }
 
+// Add godoc
+// @Summary      Bookmark a church as a favorite
+// @Description  Add a church to the user's favorites list for quick access.
+// @Tags         favorites
+// @Security     BearerAuth
+// @Param        id  path  int  true  "Church ID"
+// @Success      201  {object}  models.Favorite
+// @Failure      409  {object}  map[string]string  "Already in favorites"
+// @Router       /churches/{id}/favorite [post]
 func (h *FavoriteHandler) Add(c *gin.Context) {
 	userID := c.GetUint("userID")
 	churchID, err := strconv.ParseUint(c.Param("id"), 10, 32)
@@ -43,6 +52,13 @@ func (h *FavoriteHandler) Add(c *gin.Context) {
 	c.JSON(http.StatusCreated, fav)
 }
 
+// Remove godoc
+// @Summary      Remove a church from favorites
+// @Tags         favorites
+// @Security     BearerAuth
+// @Param        id  path  int  true  "Church ID"
+// @Success      200  {object}  map[string]string
+// @Router       /churches/{id}/favorite [delete]
 func (h *FavoriteHandler) Remove(c *gin.Context) {
 	userID := c.GetUint("userID")
 	churchID := c.Param("id")
@@ -60,6 +76,13 @@ func (h *FavoriteHandler) Remove(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "removed from favorites"})
 }
 
+// List godoc
+// @Summary      List all favorite churches
+// @Description  Returns all churches bookmarked by the current user, with schedules.
+// @Tags         favorites
+// @Security     BearerAuth
+// @Success      200  {array}  models.Favorite
+// @Router       /favorites [get]
 func (h *FavoriteHandler) List(c *gin.Context) {
 	userID := c.GetUint("userID")
 	ctx := c.Request.Context()
@@ -75,6 +98,13 @@ func (h *FavoriteHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, favorites)
 }
 
+// Check godoc
+// @Summary      Check if a church is in favorites
+// @Tags         favorites
+// @Security     BearerAuth
+// @Param        id  path  int  true  "Church ID"
+// @Success      200  {object}  map[string]bool  "is_favorite"
+// @Router       /churches/{id}/favorite [get]
 func (h *FavoriteHandler) Check(c *gin.Context) {
 	userID := c.GetUint("userID")
 	churchID := c.Param("id")
