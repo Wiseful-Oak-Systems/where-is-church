@@ -361,7 +361,7 @@ func (h *ChurchHandler) List(c *gin.Context) {
 		query = query.Where("denomination = ?", denom)
 	}
 
-	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	limit := parseLimit(c.Query("limit"))
 	offset := parseOffset(c.Query("offset"))
 
 	if err := query.Limit(limit).Offset(offset).Find(&churches).Error; err != nil {
@@ -371,13 +371,13 @@ func (h *ChurchHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, churches)
 }
 
-func parseLimit(s string, defaultVal int) int {
+func parseLimit(s string) int {
 	if s == "" {
-		return defaultVal
+		return DefaultPageLimit
 	}
 	v, err := strconv.Atoi(s)
 	if err != nil || v <= 0 {
-		return defaultVal
+		return DefaultPageLimit
 	}
 	if v > MaxPageLimit {
 		return MaxPageLimit

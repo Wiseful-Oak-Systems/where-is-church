@@ -6,6 +6,8 @@ import (
 	"strconv"
 )
 
+const EnvProduction = "production"
+
 type Config struct {
 	DBHost         string
 	DBPort         string
@@ -48,10 +50,10 @@ func (c *Config) Validate() error {
 	if c.JWTExpiry <= 0 {
 		return fmt.Errorf("JWT_EXPIRY_HOURS must be a positive integer")
 	}
-	if c.Environment == "production" && !c.CookieSecure {
+	if c.Environment == EnvProduction && !c.CookieSecure {
 		return fmt.Errorf("COOKIE_SECURE must be true in production")
 	}
-	if c.Environment == "production" && c.DBSSLMode == "disable" {
+	if c.Environment == EnvProduction && c.DBSSLMode == "disable" {
 		return fmt.Errorf("DB_SSLMODE should not be 'disable' in production")
 	}
 	return nil
@@ -67,7 +69,7 @@ func (c *Config) DSN() string {
 }
 
 func (c *Config) IsProd() bool {
-	return c.Environment == "production"
+	return c.Environment == EnvProduction
 }
 
 func getEnv(key, fallback string) string {

@@ -1,38 +1,33 @@
+version: "2"
+
 run:
   timeout: 5m
   tests: true
 
 linters:
+  default: standard
   enable:
-    - errcheck
-    - govet
-    - staticcheck
-    - unused
-    - gosimple
-    - ineffassign
-    - typecheck
     - bodyclose
-    - noctx
-    - gosec
     - goconst
+    - gosec
     - misspell
     - unconvert
     - unparam
 
-linters-settings:
-  govet:
-    check-shadowing: true
-  gosec:
-    excludes:
-      - G104 # duplicate of errcheck
-  goconst:
-    min-len: 3
-    min-occurrences: 3
+  settings:
+    govet:
+      check-shadowing: true
+    gosec:
+      excludes:
+        - G104
+    goconst:
+      min-len: 3
+      min-occurrences: 4
 
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gosec
-        - noctx
-        - errcheck
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+          - goconst

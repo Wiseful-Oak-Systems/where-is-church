@@ -15,7 +15,7 @@ type AdminHandler struct {
 
 func (h *AdminHandler) ListUsers(c *gin.Context) {
 	ctx := c.Request.Context()
-	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	limit := parseLimit(c.Query("limit"))
 	offset := parseOffset(c.Query("offset"))
 
 	var users []models.User

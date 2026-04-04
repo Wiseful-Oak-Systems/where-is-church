@@ -78,7 +78,7 @@ func (h *SuggestionHandler) List(c *gin.Context) {
 		query = query.Where("status = ?", status)
 	}
 
-	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	limit := parseLimit(c.Query("limit"))
 	offset := parseOffset(c.Query("offset"))
 
 	if err := query.Limit(limit).Offset(offset).Find(&suggestions).Error; err != nil {
@@ -140,7 +140,7 @@ func (h *SuggestionHandler) Review(c *gin.Context) {
 
 func (h *SuggestionHandler) MySuggestions(c *gin.Context) {
 	userID := c.GetUint("userID")
-	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	limit := parseLimit(c.Query("limit"))
 	offset := parseOffset(c.Query("offset"))
 
 	var suggestions []models.Suggestion

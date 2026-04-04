@@ -77,7 +77,7 @@ func (h *CheckInHandler) Create(c *gin.Context) {
 func (h *CheckInHandler) MyCheckIns(c *gin.Context) {
 	userID := c.GetUint("userID")
 	ctx := c.Request.Context()
-	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	limit := parseLimit(c.Query("limit"))
 	offset := parseOffset(c.Query("offset"))
 
 	var checkins []models.CheckIn
@@ -95,7 +95,7 @@ func (h *CheckInHandler) MyCheckIns(c *gin.Context) {
 func (h *CheckInHandler) ChurchCheckIns(c *gin.Context) {
 	churchID := c.Param("id")
 	ctx := c.Request.Context()
-	limit := parseLimit(c.Query("limit"), DefaultPageLimit)
+	limit := parseLimit(c.Query("limit"))
 	offset := parseOffset(c.Query("offset"))
 
 	var checkins []models.CheckIn

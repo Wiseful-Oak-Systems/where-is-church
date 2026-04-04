@@ -23,7 +23,7 @@ func TestUserPassword(t *testing.T) {
 
 	t.Run("User can verify their password after setting it", func(t *testing.T) {
 		user := &models.User{}
-		user.SetPassword("mypassword")
+		_ = user.SetPassword("mypassword")
 
 		if !user.CheckPassword("mypassword") {
 			t.Fatal("correct password should be accepted")
@@ -32,7 +32,7 @@ func TestUserPassword(t *testing.T) {
 
 	t.Run("Wrong password is rejected", func(t *testing.T) {
 		user := &models.User{}
-		user.SetPassword("correctpassword")
+		_ = user.SetPassword("correctpassword")
 
 		if user.CheckPassword("wrongpassword") {
 			t.Fatal("incorrect password should be rejected")
@@ -41,7 +41,7 @@ func TestUserPassword(t *testing.T) {
 
 	t.Run("Empty password is rejected when checking against a hashed password", func(t *testing.T) {
 		user := &models.User{}
-		user.SetPassword("something")
+		_ = user.SetPassword("something")
 
 		if user.CheckPassword("") {
 			t.Fatal("empty password should be rejected")

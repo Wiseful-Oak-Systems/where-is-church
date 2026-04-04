@@ -120,7 +120,7 @@ func (app *TestApp) CreateUser(name, email, password, denomination string) strin
 		app.T.Fatalf("failed to create user %s: %d – %s", email, resp.Code, resp.Body.String())
 	}
 	var result map[string]any
-	json.Unmarshal(resp.Body.Bytes(), &result)
+	_ = json.Unmarshal(resp.Body.Bytes(), &result)
 	return result["token"].(string)
 }
 
@@ -134,7 +134,7 @@ func (app *TestApp) CreateAdmin(name, email, password string) string {
 		"email": email, "password": password,
 	}, "")
 	var result map[string]any
-	json.Unmarshal(resp.Body.Bytes(), &result)
+	_ = json.Unmarshal(resp.Body.Bytes(), &result)
 	return result["token"].(string)
 }
 
@@ -147,7 +147,7 @@ func (app *TestApp) CreateModerator(name, email, password string) string {
 		"email": email, "password": password,
 	}, "")
 	var result map[string]any
-	json.Unmarshal(resp.Body.Bytes(), &result)
+	_ = json.Unmarshal(resp.Body.Bytes(), &result)
 	return result["token"].(string)
 }
 
@@ -189,13 +189,13 @@ func (app *TestApp) Request(method, path string, body any, token string) *httpte
 // ParseJSON parses the response body into a map.
 func ParseJSON(resp *httptest.ResponseRecorder) map[string]any {
 	var result map[string]any
-	json.Unmarshal(resp.Body.Bytes(), &result)
+	_ = json.Unmarshal(resp.Body.Bytes(), &result)
 	return result
 }
 
 // ParseJSONArray parses the response body into a slice of maps.
 func ParseJSONArray(resp *httptest.ResponseRecorder) []map[string]any {
 	var result []map[string]any
-	json.Unmarshal(resp.Body.Bytes(), &result)
+	_ = json.Unmarshal(resp.Body.Bytes(), &result)
 	return result
 }
