@@ -63,33 +63,51 @@ func (h *ChurchHandler) SearchNearby(c *gin.Context) {
 		}
 	}
 
-	haversine := `(6371 * acos(
-		cos(radians(?)) * cos(radians(latitude)) *
-		cos(radians(longitude) - radians(?)) +
-		sin(radians(?)) * sin(radians(latitude))
-	))`
-
 	ctx := c.Request.Context()
-	query := h.DB.WithContext(ctx).Model(&models.Church{}).
-		Select("*, "+haversine+" AS distance", lat, lng, lat).
-		Where(haversine+" <= ?", lat, lng, lat, radiusKm).
-		Order("distance ASC")
+
+	// Use bounding box pre-filter + Haversine for accurate distance.
+	// The bounding box reduces the dataset before the expensive trig calculation.
+	// 1 degree latitude ≈ 111km, 1 degree longitude ≈ 111km * cos(lat)
+	latDelta := radiusKm / 111.0
+	lngDelta := radiusKm / (111.0 * math.Cos(lat*math.Pi/180.0))
+
+	query := h.DB.WithContext(ctx).
+		Where("latitude BETWEEN ? AND ?", lat-latDelta, lat+latDelta).
+		Where("longitude BETWEEN ? AND ?", lng-lngDelta, lng+lngDelta)
 
 	if denomination != "" && denomination != "All" {
 		query = query.Where("denomination = ?", denomination)
 	}
 
-	var churches []struct {
-		models.Church
-		Distance float64 `json:"distance"`
-	}
-
-	if err := query.Preload("Schedules").Find(&churches).Error; err != nil {
+	var churches []models.Church
+	if err := query.Preload("Schedules").Limit(100).Find(&churches).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "search failed"})
 		return
 	}
 
-	c.JSON(http.StatusOK, churches)
+	// Calculate Haversine distance in Go for each result
+	type ChurchWithDistance struct {
+		models.Church
+		Distance float64 `json:"distance"`
+	}
+	results := make([]ChurchWithDistance, 0, len(churches))
+	for _, ch := range churches {
+		d := haversineDistance(lat, lng, ch.Latitude, ch.Longitude)
+		if d <= radiusKm {
+			results = append(results, ChurchWithDistance{Church: ch, Distance: d})
+		}
+	}
+
+	// Sort by distance
+	for i := 0; i < len(results); i++ {
+		for j := i + 1; j < len(results); j++ {
+			if results[j].Distance < results[i].Distance {
+				results[i], results[j] = results[j], results[i]
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, results)
 }
 
 // GetByID godoc
@@ -383,6 +401,18 @@ func parseLimit(s string) int {
 		return MaxPageLimit
 	}
 	return v
+}
+
+// haversineDistance calculates the distance in km between two points using the Haversine formula.
+func haversineDistance(lat1, lng1, lat2, lng2 float64) float64 {
+	const earthRadiusKm = 6371.0
+	dLat := (lat2 - lat1) * math.Pi / 180.0
+	dLng := (lng2 - lng1) * math.Pi / 180.0
+	a := math.Sin(dLat/2)*math.Sin(dLat/2) +
+		math.Cos(lat1*math.Pi/180.0)*math.Cos(lat2*math.Pi/180.0)*
+			math.Sin(dLng/2)*math.Sin(dLng/2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+	return earthRadiusKm * c
 }
 
 func parseOffset(s string) int {
