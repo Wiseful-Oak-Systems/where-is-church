@@ -158,7 +158,13 @@ button, input, select, textarea { font: inherit; }
   font-size: 1.5rem; font-weight: 700; box-shadow: var(--shadow-lg);
   cursor: pointer; transition: all var(--transition);
 }
-.fab:hover { transform: scale(1.1); background: var(--color-accent-light); }
+.fab:hover { transform: scale(1.05); background: var(--color-accent-light); }
+.fab--labeled { width: auto; border-radius: 28px; padding: 0 1.25rem; gap: .4rem; display: flex; align-items: center; }
+.fab-icon { font-size: 1.2rem; }
+.fab-text { font-size: .85rem; font-weight: 600; }
+.modal-dialog--wide { max-width: 560px; }
+.suggestion-section { border: 1px solid var(--color-gray-200); border-radius: var(--radius); padding: 1rem; margin-bottom: 1rem; background: var(--color-gray-50); }
+@media (prefers-color-scheme: dark) { .suggestion-section { background: #2d3748; border-color: #4a5568; } }
 
 /* ─── Modal ────────────────────────────────────────────────────────────────── */
 .modal { position: fixed; inset: 0; z-index: 2000; display: flex; align-items: center; justify-content: center; }

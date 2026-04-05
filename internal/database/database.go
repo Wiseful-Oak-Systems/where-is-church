@@ -72,5 +72,7 @@ func runMigrations(db *gorm.DB) error {
 		&models.UserReputation{},
 		&models.ChurchConfirmation{},
 		&models.ChurchProposal{},
+		&models.Tag{},
+		&models.ChurchTag{},
 	)
 }

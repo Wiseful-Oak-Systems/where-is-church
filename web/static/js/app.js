@@ -266,14 +266,40 @@ async function searchChurches(lat, lng, radius, denomination) {
 
     try {
         const churches = await api(`/churches/search?${params}`);
+        const list = document.getElementById('church-list');
+        const countEl = document.getElementById('results-count');
+
         if (!churches || churches.length === 0) {
-            showToast('No churches found in this area.', 'info');
+            if (list) list.innerHTML = '<p class="church-list-empty">No churches found in this area. Try increasing the radius or changing the denomination filter.</p>';
+            if (countEl) countEl.textContent = '0 results';
             return [];
         }
         churches.forEach((church) => placeChurchMarker(church));
-        showToast(`Found ${churches.length} church${churches.length !== 1 ? 'es' : ''}.`, 'success');
+        if (countEl) countEl.textContent = `${churches.length} result${churches.length !== 1 ? 's' : ''}`;
+
+        // Render church cards in sidebar
+        if (list) {
+            list.innerHTML = churches.map(ch => `
+                <article class="church-card" role="listitem" onclick="window.location='/church/${ch.id}'">
+                    <div class="church-card-body">
+                        <h3 class="church-card-name">${escapeHtml(ch.name)}</h3>
+                        <span class="denomination-badge denomination-badge--${(ch.denomination || 'other').toLowerCase()}">${escapeHtml(ch.denomination)}</span>
+                        <p class="church-card-address">${escapeHtml(ch.address || '')}</p>
+                        <div class="church-card-meta">
+                            <span class="church-card-distance">${ch.distance != null ? ch.distance.toFixed(1) + ' km' : ''}</span>
+                        </div>
+                    </div>
+                    <div class="church-card-actions">
+                        <a href="/church/${ch.id}" class="btn btn-sm btn-outline">View</a>
+                    </div>
+                </article>
+            `).join('');
+        }
+
         return churches;
     } catch (err) {
+        const list = document.getElementById('church-list');
+        if (list) list.innerHTML = '<p class="church-list-empty">Search failed. Please try again.</p>';
         showToast('Search failed: ' + err.message, 'error');
         return [];
     }
@@ -556,14 +582,14 @@ function initRadiusSlider() {
     if (!slider) return;
 
     slider.addEventListener('input', () => {
-        if (label) label.textContent = `${slider.value} km`;
+        if (label) label.textContent = slider.value;
     });
 
     slider.addEventListener('change', () => {
         triggerSearch();
     });
 
-    if (label) label.textContent = `${slider.value} km`;
+    if (label) label.textContent = slider.value;
 }
 
 function initDenominationFilter() {
@@ -586,28 +612,137 @@ function initSuggestionForm() {
     const form = document.getElementById('suggestion-form');
     if (!form) return;
 
+    const typeSelect = document.getElementById('suggestion-type');
+    const proposalFields = document.getElementById('proposal-fields');
+    const churchSearchGroup = document.getElementById('church-search-group');
+    const contentField = document.getElementById('suggestion-content');
+
+    // Show/hide fields based on suggestion type
+    function updateFormFields() {
+        const type = typeSelect?.value;
+        if (proposalFields) proposalFields.hidden = type !== 'new_church';
+        if (churchSearchGroup) churchSearchGroup.hidden = (type === 'new_church' || type === 'general');
+
+        // Update placeholder based on type
+        if (contentField) {
+            const placeholders = {
+                'new_church': 'Mass times, special features, how to get there...',
+                'edit_church': 'What needs to be corrected? (address, phone, name...)',
+                'schedule': 'What are the correct mass times?',
+                'general': 'Your feedback or suggestion...',
+            };
+            contentField.placeholder = placeholders[type] || 'Details...';
+        }
+    }
+
+    if (typeSelect) {
+        typeSelect.addEventListener('change', updateFormFields);
+        updateFormFields();
+    }
+
+    // Church search within the modal (for edit/schedule types)
+    const churchSearch = document.getElementById('suggestion-church-search');
+    const churchResults = document.getElementById('church-search-results');
+    let churchSearchTimeout = null;
+
+    if (churchSearch) {
+        churchSearch.addEventListener('input', () => {
+            clearTimeout(churchSearchTimeout);
+            const q = churchSearch.value.trim();
+            if (q.length < 2) { if (churchResults) churchResults.hidden = true; return; }
+            churchSearchTimeout = setTimeout(async () => {
+                try {
+                    const churches = await api('/churches?limit=5&denomination=All');
+                    const filtered = churches.filter(c =>
+                        c.name.toLowerCase().includes(q.toLowerCase()) ||
+                        (c.address && c.address.toLowerCase().includes(q.toLowerCase()))
+                    );
+                    if (!filtered.length) { churchResults.hidden = true; return; }
+                    churchResults.innerHTML = filtered.map(c =>
+                        `<li class="search-result-item" role="option" data-id="${c.id}">${escapeHtml(c.name)} <small class="text-muted">${escapeHtml(c.address || '')}</small></li>`
+                    ).join('');
+                    churchResults.hidden = false;
+                    churchResults.querySelectorAll('.search-result-item').forEach(item => {
+                        item.addEventListener('click', () => {
+                            document.getElementById('suggestion-church-id').value = item.dataset.id;
+                            const selected = document.getElementById('selected-church-name');
+                            if (selected) { selected.textContent = '✓ Selected: ' + item.textContent; selected.hidden = false; }
+                            churchSearch.value = '';
+                            churchResults.hidden = true;
+                        });
+                    });
+                } catch { churchResults.hidden = true; }
+            }, 300);
+        });
+    }
+
+    // Pick location from map for proposals
+    const pickBtn = document.getElementById('proposal-pick-location');
+    if (pickBtn) {
+        pickBtn.addEventListener('click', () => {
+            closeSuggestionModal();
+            showToast('Click on the map to set the church location.', 'info');
+            if (map) map.getContainer().style.cursor = 'crosshair';
+            const handler = (e) => {
+                document.getElementById('proposal-lat').value = e.latlng.lat.toFixed(6);
+                document.getElementById('proposal-lng').value = e.latlng.lng.toFixed(6);
+                map.getContainer().style.cursor = '';
+                map.off('click', handler);
+                showToast('Location set! Reopening the form...', 'success');
+                setTimeout(() => openSuggestionModal(), 500);
+            };
+            if (map) map.on('click', handler);
+        });
+    }
+
+    // Form submission
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const type = form.querySelector('[name="type"]')?.value;
-        const content = form.querySelector('[name="content"]')?.value;
+        const type = typeSelect?.value;
+        const content = contentField?.value;
         if (!type || !content) {
-            showToast('Please fill in all fields.', 'warning');
+            showToast('Please fill in all required fields.', 'warning');
             return;
         }
-        await submitSuggestion(selectedChurchId, type, content);
-        form.reset();
+
+        const body = { type, content };
+
+        // For new_church, include the structured proposal
+        if (type === 'new_church') {
+            const name = document.getElementById('proposal-name')?.value;
+            const address = document.getElementById('proposal-address')?.value;
+            if (!name) { showToast('Please enter the church name.', 'warning'); return; }
+            body.proposal = {
+                name,
+                address: address || '',
+                denomination: document.getElementById('proposal-denomination')?.value || 'Catholic',
+                phone: document.getElementById('proposal-phone')?.value || '',
+                latitude: parseFloat(document.getElementById('proposal-lat')?.value) || 0,
+                longitude: parseFloat(document.getElementById('proposal-lng')?.value) || 0,
+            };
+        }
+
+        // For edit/schedule, include church_id
+        const churchId = document.getElementById('suggestion-church-id')?.value;
+        if (churchId) body.church_id = parseInt(churchId);
+
+        try {
+            await api('/suggestions', { method: 'POST', body: JSON.stringify(body) });
+            showToast('Suggestion submitted! Thank you.', 'success');
+            closeSuggestionModal();
+            form.reset();
+            updateFormFields();
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
     });
 
     const cancelBtn = document.getElementById('suggestion-cancel');
     if (cancelBtn) cancelBtn.addEventListener('click', closeSuggestionModal);
-
-    // Wire close button and backdrop click (Bug B3, B4)
     const closeBtn = document.getElementById('suggestion-close');
     if (closeBtn) closeBtn.addEventListener('click', closeSuggestionModal);
     const backdrop = document.getElementById('suggestion-backdrop');
     if (backdrop) backdrop.addEventListener('click', closeSuggestionModal);
-
-    // Wire FAB button to open suggestion modal (Bug B2)
     const fab = document.getElementById('suggest-fab');
     if (fab) fab.addEventListener('click', () => openSuggestionModal());
 }

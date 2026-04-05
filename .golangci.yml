@@ -38,3 +38,4 @@ linters:
       - path: internal/seeder/
         linters:
           - gosec
+          - misspell

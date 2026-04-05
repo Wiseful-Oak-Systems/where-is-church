@@ -32,7 +32,10 @@ func main() {
 
 	db := database.Connect(cfg)
 
-	// Auto-seed from OpenStreetMap if database is empty
+	// Seed default tags (always, idempotent)
+	seeder.SeedDefaultTags(db)
+
+	// Auto-seed churches from OpenStreetMap if database is empty
 	if cfg.AutoSeed {
 		seeder.SeedIfEmpty(db, cfg.SeedCountry)
 	}
@@ -81,6 +84,7 @@ func main() {
 	adminToolsH := &handlers.AdminToolsHandler{DB: db}
 	reputationH := &handlers.ReputationHandler{DB: db}
 	communityH := &handlers.CommunityHandler{DB: db}
+	tagH := &handlers.TagHandler{DB: db}
 	attachmentH := &handlers.AttachmentHandler{
 		DB:      db,
 		Store:   store,
@@ -138,6 +142,11 @@ func main() {
 	auth.GET("/reputation", reputationH.GetMyReputation)
 	auth.GET("/impact", communityH.ContributionImpact)
 	auth.POST("/churches/:id/confirm", communityH.ConfirmChurch)
+
+	auth.GET("/tags", tagH.ListTags)
+	auth.GET("/churches/:id/tags", tagH.GetChurchTags)
+	auth.POST("/churches/:id/tags", tagH.AddTagToChurch)
+	auth.GET("/churches/by-tag", tagH.SearchByTag)
 	auth.GET("/leaderboard", reputationH.Leaderboard)
 
 	auth.POST("/attachments", attachmentH.Upload)

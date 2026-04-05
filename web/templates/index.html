@@ -145,55 +145,94 @@
   <!-- Floating suggest button (mobile) -->
   <button
     id="suggest-fab"
-    class="fab"
+    class="fab fab--labeled"
     type="button"
-    aria-label="Suggest a new church"
-    title="Suggest a new church"
-  >+</button>
+    aria-label="Suggest a church"
+    title="Suggest a church"
+  ><span class="fab-icon">&#9962;</span><span class="fab-text">Suggest</span></button>
 
   <!-- Suggestion modal -->
   <div id="suggestion-modal" class="modal" role="dialog" aria-modal="true"
        aria-labelledby="suggestion-modal-title" hidden>
     <div class="modal-backdrop" id="suggestion-backdrop"></div>
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog--wide">
       <header class="modal-header">
-        <h2 id="suggestion-modal-title" class="modal-title">Suggest a Church</h2>
+        <h2 id="suggestion-modal-title" class="modal-title">&#9962; Suggest a Church</h2>
         <button type="button" class="modal-close" id="suggestion-close" aria-label="Close">&#x2715;</button>
       </header>
 
       <form id="suggestion-form" class="modal-body" novalidate>
+        <!-- Step 1: What do you want to do? -->
         <div class="form-group">
-          <label for="suggestion-type" class="form-label">Type</label>
+          <label for="suggestion-type" class="form-label">What would you like to do?</label>
           <select id="suggestion-type" name="type" class="form-select" required>
-            <option value="new_church">New church</option>
-            <option value="edit_church">Edit existing church</option>
-            <option value="schedule">Mass schedule update</option>
-            <option value="general">General feedback</option>
+            <option value="new_church">&#x2795; Add a church that's not listed</option>
+            <option value="edit_church">&#x270F; Correct info for an existing church</option>
+            <option value="schedule">&#x1F551; Update mass/confession schedule</option>
+            <option value="general">&#x1F4AC; General feedback</option>
           </select>
         </div>
 
-        <div class="form-group" id="church-id-group">
-          <label for="suggestion-church-id" class="form-label">
-            Church ID <span class="form-hint">(optional &mdash; leave blank for new church)</span>
-          </label>
-          <input
-            type="number"
-            id="suggestion-church-id"
-            name="church_id"
-            class="form-input"
-            placeholder="e.g. 42"
-            min="1"
-          >
+        <!-- New Church structured form (shown when type = new_church) -->
+        <div id="proposal-fields" class="suggestion-section">
+          <p class="form-hint mb-1">Help us add this church to the map! Fill in what you know.</p>
+          <div class="form-group">
+            <label for="proposal-name" class="form-label">Church name *</label>
+            <input type="text" id="proposal-name" class="form-input" placeholder="e.g., Paróquia Nossa Senhora Aparecida" required>
+          </div>
+          <div class="form-group">
+            <label for="proposal-address" class="form-label">Address *</label>
+            <input type="text" id="proposal-address" class="form-input" placeholder="Rua, número - Bairro, Cidade - Estado">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="proposal-denomination" class="form-label">Denomination</label>
+              <select id="proposal-denomination" class="form-select">
+                <option value="Catholic" selected>Catholic</option>
+                <option value="Orthodox">Orthodox</option>
+                <option value="Protestant">Protestant</option>
+                <option value="Anglican">Anglican</option>
+                <option value="Evangelical">Evangelical</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="proposal-phone" class="form-label">Phone</label>
+              <input type="tel" id="proposal-phone" class="form-input" placeholder="(11) 9999-0000">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location on map</label>
+            <p class="form-hint">Click on the map to set the church's location, or enter coordinates:</p>
+            <div class="form-row">
+              <input type="number" id="proposal-lat" class="form-input" placeholder="Latitude" step="any">
+              <input type="number" id="proposal-lng" class="form-input" placeholder="Longitude" step="any">
+            </div>
+            <button type="button" id="proposal-pick-location" class="btn btn-outline btn-sm mt-1">&#x1F4CD; Pick location from map</button>
+          </div>
         </div>
 
+        <!-- Church search for edit/schedule types (shown when type = edit_church or schedule) -->
+        <div id="church-search-group" class="suggestion-section" hidden>
+          <div class="form-group">
+            <label for="suggestion-church-search" class="form-label">Which church?</label>
+            <input type="text" id="suggestion-church-search" class="form-input"
+                   placeholder="Search by name or address..." autocomplete="off">
+            <ul id="church-search-results" class="search-results" hidden role="listbox"></ul>
+            <input type="hidden" id="suggestion-church-id" name="church_id">
+            <p id="selected-church-name" class="form-hint mt-1" hidden></p>
+          </div>
+        </div>
+
+        <!-- Details (always shown, but with context-appropriate placeholder) -->
         <div class="form-group">
-          <label for="suggestion-content" class="form-label">Details</label>
+          <label for="suggestion-content" class="form-label">Additional details</label>
           <textarea
             id="suggestion-content"
             name="content"
             class="form-textarea"
-            rows="5"
-            placeholder="Describe the church, location, schedule, or correction&hellip;"
+            rows="4"
+            placeholder="Any additional information..."
             required
           ></textarea>
         </div>
