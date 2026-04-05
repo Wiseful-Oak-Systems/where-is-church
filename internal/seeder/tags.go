@@ -89,5 +89,18 @@ func defaultTags() []models.Tag {
 		{Key: "shrine", LabelEN: "Shrine / Sanctuary", LabelPT: "Santuário", Category: "type"},
 		{Key: "chapel", LabelEN: "Chapel", LabelPT: "Capela", Category: "type"},
 		{Key: "monastery", LabelEN: "Monastery / Convent", LabelPT: "Mosteiro / Convento", Category: "type"},
+
+		// Additional from research
+		{Key: "coptic", LabelEN: "Coptic Rite", LabelPT: "Rito Copta", Category: "rite"},
+		{Key: "armenian", LabelEN: "Armenian Rite", LabelPT: "Rito Armênio", Category: "rite"},
+		{Key: "legionaries", LabelEN: "Legionaries of Christ", LabelPT: "Legionários de Cristo", Category: "society"},
+		{Key: "nursing_room", LabelEN: "Nursing Mothers Room", LabelPT: "Sala de Amamentação", Category: "family", Icon: "🤱"},
+		{Key: "elevator", LabelEN: "Elevator Available", LabelPT: "Elevador Disponível", Category: "accessibility"},
+		{Key: "accessible_restrooms", LabelEN: "Accessible Restrooms", LabelPT: "Banheiros Acessíveis", Category: "accessibility"},
+		{Key: "anointing_sick", LabelEN: "Anointing of the Sick", LabelPT: "Unção dos Enfermos", Category: "sacrament"},
+		{Key: "online_giving", LabelEN: "Online Donations", LabelPT: "Doações Online", Category: "facilities"},
+		{Key: "bulletin", LabelEN: "Parish Bulletin", LabelPT: "Boletim Paroquial", Category: "facilities"},
+		{Key: "women_group", LabelEN: "Women's Ministry", LabelPT: "Pastoral da Mulher", Category: "community"},
+		{Key: "men_group", LabelEN: "Men's Ministry", LabelPT: "Pastoral do Homem", Category: "community"},
 	}
 }
