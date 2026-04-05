@@ -192,8 +192,10 @@ function useMyLocation() {
 
     function onLocationFound(lat, lng) {
         currentLocation = { lat, lng };
-        map.setView([lat, lng], 13);
-        updateLocationMarker(lat, lng);
+        if (map) {
+            map.setView([lat, lng], 13);
+            updateLocationMarker(lat, lng);
+        }
         triggerSearch();
         showToast('Location found!', 'success');
         if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
@@ -857,20 +859,29 @@ function initBottomSheet() {
 // ─── App Initialization ───────────────────────────────────────────────────────
 
 async function init() {
-    // Initialize map if the map element exists
-    const mapEl = document.getElementById('map');
-    if (mapEl) {
-        initMap();
-        initRadiusSlider();
-        initDenominationFilter();
-        initLocationBtn();
-        initSidebarToggle();
-        initSuggestionForm();
-        initAddressSearch();
-        initBottomSheet();
+    // Initialize UI controls regardless of map (these work without Leaflet)
+    initRadiusSlider();
+    initDenominationFilter();
+    initLocationBtn();
+    initSidebarToggle();
+    initSuggestionForm();
+    initAddressSearch();
+    initBottomSheet();
 
-        // Auto-detect location on first load
-        useMyLocation();
+    // Initialize map if the map element exists AND Leaflet loaded
+    const mapEl = document.getElementById('map');
+    if (mapEl && typeof L !== 'undefined') {
+        try {
+            initMap();
+            // Auto-detect location on first load
+            useMyLocation();
+        } catch (err) {
+            console.error('Map initialization failed:', err);
+            showToast('Map failed to load. Please refresh the page.', 'error');
+        }
+    } else if (mapEl) {
+        console.warn('Leaflet library not loaded. Map disabled.');
+        mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-gray-400);text-align:center;padding:2rem"><p>Map is loading...<br>If this persists, check your internet connection and refresh.</p></div>';
     }
 
     // Initialize auth forms
