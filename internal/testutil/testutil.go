@@ -11,6 +11,7 @@ import (
 	"github.com/wiseful-oak-systems/where-is-church/internal/config"
 	"github.com/wiseful-oak-systems/where-is-church/internal/handlers"
 	"github.com/wiseful-oak-systems/where-is-church/internal/middleware"
+	"github.com/wiseful-oak-systems/where-is-church/internal/i18n"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
 	"github.com/wiseful-oak-systems/where-is-church/internal/storage"
 	"gorm.io/driver/sqlite"
@@ -62,7 +63,30 @@ func NewTestApp(t *testing.T) *TestApp {
 		Environment:  "development",
 	}
 
+	// Load minimal i18n translations for tests (English only)
+	i18n.LoadFromMap(map[string]map[string]string{
+		"en-US": {
+			"auth.required":              "authentication required",
+			"auth.invalid_token":         "invalid token",
+			"auth.invalid_credentials":   "invalid credentials",
+			"auth.forbidden":             "forbidden",
+			"auth.insufficient_permissions": "insufficient permissions",
+			"not_found":                  "not found",
+			"method_not_allowed":         "method not allowed",
+		},
+		"pt-BR": {
+			"auth.required":              "authentication required",
+			"auth.invalid_token":         "invalid token",
+			"auth.invalid_credentials":   "invalid credentials",
+			"auth.forbidden":             "forbidden",
+			"auth.insufficient_permissions": "insufficient permissions",
+			"not_found":                  "not found",
+			"method_not_allowed":         "method not allowed",
+		},
+	})
+
 	r := gin.New()
+	r.Use(i18n.Middleware())
 
 	authH := &handlers.AuthHandler{DB: db, Cfg: cfg}
 	churchH := &handlers.ChurchHandler{DB: db}

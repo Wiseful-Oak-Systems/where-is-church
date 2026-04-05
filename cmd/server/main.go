@@ -13,6 +13,7 @@ import (
 	"github.com/wiseful-oak-systems/where-is-church/internal/config"
 	"github.com/wiseful-oak-systems/where-is-church/internal/database"
 	"github.com/wiseful-oak-systems/where-is-church/internal/handlers"
+	"github.com/wiseful-oak-systems/where-is-church/internal/i18n"
 	"github.com/wiseful-oak-systems/where-is-church/internal/middleware"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
 	"github.com/wiseful-oak-systems/where-is-church/internal/storage"
@@ -35,8 +36,13 @@ func main() {
 		log.Fatalf("storage initialization error: %v", err)
 	}
 
+	if _, err := i18n.Load("locales"); err != nil {
+		log.Fatalf("i18n initialization error: %v", err)
+	}
+
 	r := gin.New()
 	r.Use(gin.Recovery())
+	r.Use(i18n.Middleware())
 	if !cfg.IsProd() {
 		r.Use(gin.Logger())
 	}
@@ -82,10 +88,10 @@ func main() {
 
 	// Custom JSON 404/405
 	r.NoRoute(func(c *gin.Context) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": i18n.T(i18n.GetLang(c), "not_found")})
 	})
 	r.NoMethod(func(c *gin.Context) {
-		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not allowed"})
+		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": i18n.T(i18n.GetLang(c), "method_not_allowed")})
 	})
 
 	// Public API

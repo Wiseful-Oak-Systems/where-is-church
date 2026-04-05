@@ -4,9 +4,13 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/wiseful-oak-systems/where-is-church)](https://goreportcard.com/report/github.com/wiseful-oak-systems/where-is-church)
 [![License](https://img.shields.io/github/license/Wiseful-Oak-Systems/where-is-church)](LICENSE)
 
+Encontre igrejas perto de voce. Nunca mais perca a Missa.
+
 Find churches near you. Never miss mass again.
 
 An open-source, mobile-first church finder with Foursquare-style check-ins, community-driven data, and multi-denomination support. Built with Go, PostgreSQL/PostGIS, and Leaflet.js.
+
+> **Brazil First**: This initial release focuses on **Brazilian churches** (pt-BR as the default language). The architecture supports full internationalization (i18n) — additional countries and languages can be added by contributing a new locale file to `locales/`. English (en-US) is available as a fallback.
 
 ## Why This Exists
 
@@ -166,6 +170,32 @@ docs/                   # Market research and architecture documentation
 - Context propagation enables request-scoped DB timeouts
 - Configurable Secure cookie flag for HTTPS enforcement
 - Production config validation blocks weak secrets and insecure defaults
+
+## Internationalization (i18n)
+
+The app ships with **pt-BR** (Brazilian Portuguese) as the default language and **en-US** as a fallback.
+
+### How Language Detection Works
+
+1. `?lang=pt-BR` query parameter (highest priority)
+2. `Accept-Language` HTTP header (browser sends this automatically)
+3. Default: `pt-BR`
+
+### Adding a New Language
+
+1. Copy `locales/en-US.json` to `locales/{locale}.json` (e.g., `es-ES.json`)
+2. Translate all values (keys stay the same)
+3. Add the locale code to `SupportedLanguages` in `internal/i18n/i18n.go`
+4. Submit a pull request
+
+All API error messages, success messages, and user-facing strings are translated. The frontend templates use the browser's language for static text.
+
+### Current Locales
+
+| Locale | Language | Status |
+|--------|----------|--------|
+| `pt-BR` | Brazilian Portuguese | Default — complete |
+| `en-US` | English | Fallback — complete |
 
 ## Contributing
 

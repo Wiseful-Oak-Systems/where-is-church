@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/wiseful-oak-systems/where-is-church/internal/i18n"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
 )
 
@@ -64,7 +65,7 @@ func AuthRequired(secret string) gin.HandlerFunc {
 
 		if tokenStr == "" {
 			if strings.HasPrefix(c.Request.URL.Path, "/api/") {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": i18n.T(i18n.GetLang(c), "auth.required")})
 			} else {
 				c.Redirect(http.StatusFound, "/login")
 				c.Abort()
@@ -82,7 +83,7 @@ func AuthRequired(secret string) gin.HandlerFunc {
 		if err != nil || !token.Valid {
 			ClearAuthCookie(c, false)
 			if strings.HasPrefix(c.Request.URL.Path, "/api/") {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": i18n.T(i18n.GetLang(c), "auth.invalid_token")})
 			} else {
 				c.Redirect(http.StatusFound, "/login")
 				c.Abort()
@@ -102,7 +103,7 @@ func RoleRequired(roles ...models.Role) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		role, exists := c.Get("userRole")
 		if !exists {
-			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": i18n.T(i18n.GetLang(c), "auth.forbidden")})
 			return
 		}
 		userRole := models.Role(role.(string))
@@ -112,6 +113,6 @@ func RoleRequired(roles ...models.Role) gin.HandlerFunc {
 				return
 			}
 		}
-		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": i18n.T(i18n.GetLang(c), "auth.insufficient_permissions")})
 	}
 }

@@ -6,15 +6,34 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/wiseful-oak-systems/where-is-church/internal/i18n"
 	"github.com/wiseful-oak-systems/where-is-church/internal/middleware"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
 )
+
+func init() {
+	i18n.LoadFromMap(map[string]map[string]string{
+		"en-US": {
+			"auth.required":              "authentication required",
+			"auth.invalid_token":         "invalid token",
+			"auth.forbidden":             "forbidden",
+			"auth.insufficient_permissions": "insufficient permissions",
+		},
+		"pt-BR": {
+			"auth.required":              "authentication required",
+			"auth.invalid_token":         "invalid token",
+			"auth.forbidden":             "forbidden",
+			"auth.insufficient_permissions": "insufficient permissions",
+		},
+	})
+}
 
 const testSecret = "test-jwt-secret"
 
 func setupTestRouter(middlewares ...gin.HandlerFunc) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+	r.Use(i18n.Middleware())
 	api := r.Group("/api/test", middlewares...)
 	api.GET("/protected", func(c *gin.Context) {
 		c.JSON(200, gin.H{
