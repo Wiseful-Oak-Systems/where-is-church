@@ -17,6 +17,8 @@ USER appuser
 
 COPY --from=builder /bin/whereischurch /bin/whereischurch
 COPY --from=builder /app/web /app/web
+COPY --from=builder /app/locales /app/locales
+COPY --from=builder /app/migrations /app/migrations
 
 WORKDIR /app
 

@@ -53,24 +53,28 @@ See [docs/MARKET_RESEARCH.md](docs/MARKET_RESEARCH.md) for our full competitive 
 ## Quick Start
 
 ### Prerequisites
-- Go 1.22+
-- Docker & Docker Compose
+- Docker & Docker Compose (that's it!)
 
-### Run Locally
+### Run Everything with One Command
 ```bash
 git clone https://github.com/Wiseful-Oak-Systems/where-is-church.git
 cd where-is-church
 cp .env.example .env
-make dev    # starts PostgreSQL + the server
+make up    # builds and starts db + app
 ```
 
-Open http://localhost:8080, register an account, and start finding churches.
+Open http://localhost:8080 — the app is ready.
 
-### Run with Docker
 ```bash
-docker compose up -d      # start PostgreSQL
-make docker-build         # build the app image
-docker run -p 8080:8080 --env-file .env where-is-church:latest
+make logs   # tail logs from all services
+make down   # stop everything
+```
+
+### Run Locally (for development)
+Requires Go 1.22+ installed locally.
+
+```bash
+make dev    # starts only PostgreSQL via Docker, runs Go server natively
 ```
 
 ### Run Tests

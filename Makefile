@@ -1,10 +1,22 @@
-.PHONY: run build dev db-up db-down test test-verbose lint fmt clean docker-build docker-run coverage help
+.PHONY: run build dev db-up db-down up down test test-verbose lint fmt clean docker-build logs coverage help
 
 ## help: Show this help message
 help:
 	@grep -E '^## ' Makefile | sed 's/## //'
 
-## run: Start the server
+## up: Start the full stack (db + app) with Docker Compose
+up:
+	docker compose up -d --build
+
+## down: Stop all services
+down:
+	docker compose down
+
+## logs: Tail logs from all services
+logs:
+	docker compose logs -f
+
+## run: Start the server locally (requires db-up first)
 run:
 	go run ./cmd/server
 
@@ -12,16 +24,16 @@ run:
 build:
 	CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/whereischurch ./cmd/server
 
-## dev: Start database and server
+## dev: Start database only, then run the server locally
 dev: db-up run
 
-## db-up: Start PostgreSQL with PostGIS
+## db-up: Start only the database
 db-up:
-	docker compose up -d
+	docker compose up -d db
 
-## db-down: Stop PostgreSQL
+## db-down: Stop the database
 db-down:
-	docker compose down
+	docker compose down db
 
 ## test: Run all tests
 test:
@@ -66,10 +78,6 @@ migrate-create:
 clean:
 	rm -rf bin/ server coverage.out coverage.*
 
-## docker-build: Build Docker image
+## docker-build: Build Docker image only
 docker-build:
 	docker build -t where-is-church:latest .
-
-## docker-run: Run the full stack with Docker Compose
-docker-run: db-up
-	docker compose up -d
