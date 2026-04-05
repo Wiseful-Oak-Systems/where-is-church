@@ -32,3 +32,6 @@ linters:
           - errcheck
           - goconst
           - unparam
+      - path: cmd/seed/
+        linters:
+          - gosec

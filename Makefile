@@ -81,3 +81,7 @@ clean:
 ## docker-build: Build Docker image only
 docker-build:
 	docker build -t where-is-church:latest .
+
+## seed: Import all Brazilian churches from OpenStreetMap (requires running database)
+seed:
+	go run ./cmd/seed

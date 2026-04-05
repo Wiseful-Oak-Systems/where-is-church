@@ -61,14 +61,26 @@ git clone https://github.com/Wiseful-Oak-Systems/where-is-church.git
 cd where-is-church
 cp .env.example .env
 make up    # builds and starts db + app
+make seed  # imports ~70,000 Brazilian churches from OpenStreetMap (one-time)
 ```
 
-Open http://localhost:8080 — the app is ready.
+Open http://localhost:8080 — register, and the map will show churches near you.
 
 ```bash
 make logs   # tail logs from all services
 make down   # stop everything
 ```
+
+### Data Seeding
+
+The `make seed` command fetches all Christian places of worship in Brazil from [OpenStreetMap](https://www.openstreetmap.org/) via the Overpass API. This is free, open data maintained by a global community.
+
+- ~70,000 churches with name, denomination, coordinates, address, phone, website
+- Denominations auto-mapped: Catholic (default), Orthodox, Protestant, Anglican, Evangelical
+- Duplicate detection prevents re-importing on subsequent runs
+- Takes 2-5 minutes depending on your connection
+
+To seed other countries, modify the Overpass query in `cmd/seed/main.go` (change `"BR"` to any ISO 3166-1 country code).
 
 ### Run Locally (for development)
 Requires Go 1.22+ installed locally.
