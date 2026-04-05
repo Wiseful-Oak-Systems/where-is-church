@@ -60,11 +60,12 @@ See [docs/MARKET_RESEARCH.md](docs/MARKET_RESEARCH.md) for our full competitive 
 git clone https://github.com/Wiseful-Oak-Systems/where-is-church.git
 cd where-is-church
 cp .env.example .env
-make up    # builds and starts db + app
-make seed  # imports ~70,000 Brazilian churches from OpenStreetMap (one-time)
+make up    # builds and starts db + app — auto-seeds ~70K churches on first run
 ```
 
 Open http://localhost:8080 — register, and the map will show churches near you.
+
+On first startup, the app detects an empty database and **automatically imports ~70,000 Brazilian churches from OpenStreetMap** in the background. The app is usable immediately while seeding progresses (takes 2-5 minutes).
 
 ```bash
 make logs   # tail logs from all services

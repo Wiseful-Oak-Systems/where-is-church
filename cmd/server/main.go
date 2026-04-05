@@ -14,6 +14,7 @@ import (
 	"github.com/wiseful-oak-systems/where-is-church/internal/database"
 	"github.com/wiseful-oak-systems/where-is-church/internal/handlers"
 	"github.com/wiseful-oak-systems/where-is-church/internal/i18n"
+	"github.com/wiseful-oak-systems/where-is-church/internal/seeder"
 	"github.com/wiseful-oak-systems/where-is-church/internal/middleware"
 	"github.com/wiseful-oak-systems/where-is-church/internal/models"
 	"github.com/wiseful-oak-systems/where-is-church/internal/storage"
@@ -30,6 +31,11 @@ func main() {
 	}
 
 	db := database.Connect(cfg)
+
+	// Auto-seed from OpenStreetMap if database is empty
+	if cfg.AutoSeed {
+		seeder.SeedIfEmpty(db, cfg.SeedCountry)
+	}
 
 	store, err := storage.New(cfg)
 	if err != nil {

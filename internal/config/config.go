@@ -32,6 +32,8 @@ type Config struct {
 	S3AccessKey      string
 	S3SecretKey      string
 	MaxUploadSizeMB  int
+	SeedCountry      string // ISO 3166-1 code for auto-seeding (e.g., "BR")
+	AutoSeed         bool   // auto-seed from OSM when DB is empty
 }
 
 func Load() *Config {
@@ -58,6 +60,8 @@ func Load() *Config {
 		S3AccessKey:      getEnv("S3_ACCESS_KEY", ""),
 		S3SecretKey:      getEnv("S3_SECRET_KEY", ""),
 		MaxUploadSizeMB:  getEnvInt("MAX_UPLOAD_SIZE_MB", 10),
+		SeedCountry:      getEnv("SEED_COUNTRY", "BR"),
+		AutoSeed:         getEnvBool("AUTO_SEED", true),
 	}
 }
 

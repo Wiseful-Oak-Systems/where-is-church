@@ -34,6 +34,8 @@ services:
       STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       STORAGE_LOCAL_PATH: /app/uploads
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-10}
+      AUTO_SEED: ${AUTO_SEED:-true}
+      SEED_COUNTRY: ${SEED_COUNTRY:-BR}
     volumes:
       - uploads:/app/uploads
       - ./locales:/app/locales:ro

@@ -35,3 +35,6 @@ linters:
       - path: cmd/seed/
         linters:
           - gosec
+      - path: internal/seeder/
+        linters:
+          - gosec
