@@ -22,7 +22,7 @@ linters:
         - G104
     goconst:
       min-len: 3
-      min-occurrences: 4
+      min-occurrences: 5
 
   exclusions:
     rules:

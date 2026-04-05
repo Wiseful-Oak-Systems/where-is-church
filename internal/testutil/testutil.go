@@ -48,6 +48,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		&models.AuditLog{},
 		&models.UserReputation{},
 		&models.ChurchConfirmation{},
+		&models.ChurchProposal{},
 	}
 	for _, m := range allModels {
 		if err := db.AutoMigrate(m); err != nil {

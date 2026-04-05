@@ -136,10 +136,11 @@ func TestSuggestionReview(t *testing.T) {
 			t.Fatalf("expected 200, got %d: %s", resp.Code, resp.Body.String())
 		}
 		result := testutil.ParseJSON(resp)
-		if result["status"] != "approved" {
-			t.Errorf("expected status 'approved', got %v", result["status"])
+		sugg2 := result["suggestion"].(map[string]any)
+		if sugg2["status"] != "approved" {
+			t.Errorf("expected status 'approved', got %v", sugg2["status"])
 		}
-		if result["review_note"] != "Verified, will add the church." {
+		if sugg2["review_note"] != "Verified, will add the church." {
 			t.Error("review note should be stored")
 		}
 	})
@@ -164,8 +165,9 @@ func TestSuggestionReview(t *testing.T) {
 			t.Fatalf("expected 200, got %d", resp.Code)
 		}
 		result := testutil.ParseJSON(resp)
-		if result["status"] != "rejected" {
-			t.Errorf("expected 'rejected', got %v", result["status"])
+		sugg2 := result["suggestion"].(map[string]any)
+		if sugg2["status"] != "rejected" {
+			t.Errorf("expected 'rejected', got %v", sugg2["status"])
 		}
 	})
 
