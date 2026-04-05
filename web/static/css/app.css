@@ -43,11 +43,11 @@ button, input, select, textarea { font: inherit; }
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   height: var(--navbar-h); display: flex; align-items: center;
   padding: 0 1rem; background: var(--color-primary);
-  color: var(--color-white); box-shadow: var(--shadow);
+  color: #ffffff; box-shadow: var(--shadow);
 }
 .navbar-brand { flex-shrink: 0; }
 .navbar-logo {
-  color: var(--color-white); font-weight: 700; font-size: 1.125rem;
+  color: #ffffff; font-weight: 700; font-size: 1.125rem;
   display: flex; align-items: center; gap: .5rem; text-decoration: none;
 }
 .navbar-links {
@@ -313,7 +313,7 @@ button, input, select, textarea { font: inherit; }
 
 /* ─── Responsive ───────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .navbar-links { display: none; position: absolute; top: var(--navbar-h); left: 0; right: 0; background: var(--color-primary); flex-direction: column; padding: .75rem; gap: .25rem; box-shadow: var(--shadow); }
+  .navbar-links { display: none; position: absolute; top: var(--navbar-h); left: 0; right: 0; background: #1a365d; flex-direction: column; padding: .75rem; gap: .25rem; box-shadow: var(--shadow); }
   .navbar-links.open { display: flex; }
   .navbar-toggle { display: flex; }
 

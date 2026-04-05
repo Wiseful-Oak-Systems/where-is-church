@@ -123,7 +123,8 @@ async function updateProfile(name, denomination, latitude, longitude) {
 
 // ─── Map Initialization ───────────────────────────────────────────────────────
 
-function initMap(centerLat = 20, centerLng = 0, zoom = 2) {
+// Default center: Brazil (-15.78, -47.93 = Brasília) at zoom 4
+function initMap(centerLat = -15.78, centerLng = -47.93, zoom = 4) {
     if (map) return;
 
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -187,34 +188,67 @@ function updateLocationMarker(lat, lng) {
 
 function useMyLocation() {
     const btn = document.getElementById('use-my-location');
+    if (btn) { btn.classList.add('btn--loading'); btn.disabled = true; }
+
+    function onLocationFound(lat, lng) {
+        currentLocation = { lat, lng };
+        map.setView([lat, lng], 13);
+        updateLocationMarker(lat, lng);
+        triggerSearch();
+        showToast('Location found!', 'success');
+        if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
+    }
+
+    function onLocationFailed() {
+        // Fallback: try IP-based geolocation
+        fallbackIPGeolocation(onLocationFound, () => {
+            showToast('Could not detect location. Search a place or click the map.', 'warning');
+            if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
+        });
+    }
+
     if (!navigator.geolocation) {
-        showToast('Geolocation is not supported by your browser.', 'error');
+        onLocationFailed();
         return;
     }
 
-    if (btn) { btn.classList.add('btn--loading'); btn.disabled = true; }
-
     navigator.geolocation.getCurrentPosition(
-        (pos) => {
-            const { latitude: lat, longitude: lng } = pos.coords;
-            currentLocation = { lat, lng };
-            map.setView([lat, lng], 13);
-            updateLocationMarker(lat, lng);
-            triggerSearch();
-            showToast('Location found!', 'success');
-            if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
-        },
-        (err) => {
-            const messages = {
-                1: 'Location access denied. Search a place or click on the map.',
-                2: 'Location unavailable. Try again or search a place.',
-                3: 'Location request timed out.',
-            };
-            showToast(messages[err.code] || 'Could not get your location.', 'error');
-            if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
-        },
-        { timeout: 10000, maximumAge: 60000 }
+        (pos) => onLocationFound(pos.coords.latitude, pos.coords.longitude),
+        () => onLocationFailed(),
+        { timeout: 8000, maximumAge: 60000 }
     );
+}
+
+// IP-based geolocation fallback using free APIs.
+// Tries multiple providers for reliability.
+async function fallbackIPGeolocation(onSuccess, onError) {
+    const providers = [
+        {
+            url: 'https://ipapi.co/json/',
+            parse: (data) => ({ lat: data.latitude, lng: data.longitude, city: data.city }),
+        },
+        {
+            url: 'https://ip-api.com/json/?fields=lat,lon,city',
+            parse: (data) => ({ lat: data.lat, lng: data.lon, city: data.city }),
+        },
+    ];
+
+    for (const provider of providers) {
+        try {
+            const res = await fetch(provider.url, { signal: AbortSignal.timeout(5000) });
+            if (!res.ok) continue;
+            const data = await res.json();
+            const result = provider.parse(data);
+            if (result.lat && result.lng) {
+                showToast(`Approximate location: ${result.city || 'detected via IP'}`, 'info');
+                onSuccess(result.lat, result.lng);
+                return;
+            }
+        } catch {
+            // Try next provider
+        }
+    }
+    onError();
 }
 
 // ─── Church Search ────────────────────────────────────────────────────────────
@@ -533,6 +567,16 @@ function initRadiusSlider() {
 function initDenominationFilter() {
     const select = document.getElementById('denomination-filter');
     if (!select) return;
+
+    // Set default from user's denomination (stored in body data attribute)
+    const userDenom = document.body.dataset.denomination;
+    if (userDenom && userDenom !== '') {
+        const option = select.querySelector(`option[value="${userDenom}"]`);
+        if (option) {
+            select.value = userDenom;
+        }
+    }
+
     select.addEventListener('change', () => triggerSearch());
 }
 
