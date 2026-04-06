@@ -243,7 +243,7 @@ func (app *TestApp) SeedChurch(name, denomination, address string, lat, lng floa
 	app.T.Helper()
 	church := models.Church{
 		Name: name, Denomination: denomination, Address: address,
-		Latitude: lat, Longitude: lng, Verified: true, CreatedByID: 1,
+		Latitude: lat, Longitude: lng, Verified: true,
 	}
 	if err := app.DB.Create(&church).Error; err != nil {
 		app.T.Fatalf("failed to seed church: %v", err)

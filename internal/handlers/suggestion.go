@@ -123,7 +123,7 @@ func (h *SuggestionHandler) Create(c *gin.Context) {
 			Phone:        input.Proposal.Phone,
 			Website:      input.Proposal.Website,
 			Description:  input.Proposal.Description,
-			CreatedByID:  userID,
+			CreatedByID:  &userID,
 			DataQuality:  models.QualityUnverified,
 		}
 		if church.Denomination == "" {
@@ -223,7 +223,7 @@ func (h *SuggestionHandler) Review(c *gin.Context) {
 				Phone:        proposal.Phone,
 				Website:      proposal.Website,
 				Description:  proposal.Description,
-				CreatedByID:  suggestion.UserID,
+				CreatedByID:  &suggestion.UserID,
 				Verified:     true,
 				DataQuality:  models.QualityOfficiallyVerified,
 			}

@@ -182,7 +182,7 @@ func (h *ChurchHandler) Create(c *gin.Context) {
 		Phone:        input.Phone,
 		Website:      input.Website,
 		Description:  input.Description,
-		CreatedByID:  userID,
+		CreatedByID:  &userID,
 	}
 
 	role := c.GetString("userRole")

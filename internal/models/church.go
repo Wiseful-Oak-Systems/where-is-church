@@ -30,7 +30,7 @@ type Church struct {
 	DataQuality    DataQuality    `gorm:"not null;default:'unverified'" json:"data_quality"`
 	Confirmations  int            `gorm:"default:0" json:"confirmations"`
 	LastVerified   *time.Time     `json:"last_verified,omitempty"`
-	CreatedByID  uint           `json:"created_by_id"`
+	CreatedByID  *uint          `json:"created_by_id,omitempty"`
 	CreatedBy    *User          `gorm:"foreignKey:CreatedByID" json:"created_by,omitempty"`
 	Schedules    []MassSchedule `gorm:"foreignKey:ChurchID" json:"schedules,omitempty"`
 	CreatedAt    time.Time      `json:"created_at"`
