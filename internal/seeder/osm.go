@@ -118,27 +118,23 @@ func Seed(db *gorm.DB, countryCode string) error {
 func insertElements(db *gorm.DB, elements []overpassElement) error {
 	log.Printf("Processing %d elements from OpenStreetMap...", len(elements))
 
-	inserted, skipped := 0, 0
-	for i, el := range elements {
+	seeds := make([]SeedChurch, 0, len(elements))
+	for _, el := range elements {
 		lat, lng := el.Lat, el.Lon
 		if el.Center != nil {
 			lat, lng = el.Center.Lat, el.Center.Lon
 		}
 		if lat == 0 && lng == 0 {
-			skipped++
 			continue
 		}
-
 		name := el.Tags["name"]
 		if name == "" {
 			name = el.Tags["official_name"]
 		}
 		if name == "" {
-			skipped++
 			continue
 		}
-
-		church := models.Church{
+		seeds = append(seeds, SeedChurch{
 			Name:         name,
 			Denomination: mapDenomination(el.Tags["denomination"]),
 			Address:      buildAddress(el.Tags),
@@ -147,30 +143,10 @@ func insertElements(db *gorm.DB, elements []overpassElement) error {
 			Phone:        el.Tags["phone"],
 			Website:      el.Tags["website"],
 			Description:  el.Tags["description"],
-			Verified:     false,
-			DataQuality:  models.QualityUnverified,
-		}
-
-		var existing models.Church
-		if db.Where("name = ? AND ABS(latitude - ?) < 0.001 AND ABS(longitude - ?) < 0.001",
-			church.Name, church.Latitude, church.Longitude).First(&existing).RowsAffected > 0 {
-			skipped++
-			continue
-		}
-
-		if err := db.Create(&church).Error; err != nil {
-			skipped++
-			continue
-		}
-		inserted++
-
-		if (i+1)%1000 == 0 {
-			log.Printf("  Seed progress: %d/%d (%d inserted)", i+1, len(elements), inserted)
-		}
+		})
 	}
 
-	log.Printf("Seed complete: %d inserted, %d skipped (of %d total)", inserted, skipped, len(elements))
-	return nil
+	return bulkInsertChurches(db, seeds)
 }
 
 func fetchOverpass(query string) ([]overpassElement, error) {
