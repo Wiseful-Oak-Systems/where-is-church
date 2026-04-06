@@ -676,6 +676,31 @@ function initSuggestionForm() {
         });
     }
 
+    // Auto-geocode when address is filled (so users don't need to enter coordinates)
+    const proposalAddress = document.getElementById('proposal-address');
+    if (proposalAddress) {
+        let geoTimeout = null;
+        proposalAddress.addEventListener('blur', () => {
+            const addr = proposalAddress.value.trim();
+            const latField = document.getElementById('proposal-lat');
+            const lngField = document.getElementById('proposal-lng');
+            if (addr.length > 5 && latField && (!latField.value || latField.value === '0')) {
+                clearTimeout(geoTimeout);
+                geoTimeout = setTimeout(async () => {
+                    try {
+                        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr + ', Brasil')}&format=json&limit=1`);
+                        const results = await res.json();
+                        if (results.length > 0) {
+                            latField.value = parseFloat(results[0].lat).toFixed(6);
+                            lngField.value = parseFloat(results[0].lon).toFixed(6);
+                            showToast('Localização detectada automaticamente pelo endereço!', 'success');
+                        }
+                    } catch { /* ignore geocoding errors */ }
+                }, 500);
+            }
+        });
+    }
+
     // Pick location from map for proposals
     const pickBtn = document.getElementById('proposal-pick-location');
     if (pickBtn) {

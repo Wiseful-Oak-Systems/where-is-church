@@ -34,6 +34,7 @@ type Config struct {
 	MaxUploadSizeMB  int
 	SeedCountry      string // ISO 3166-1 code for auto-seeding (e.g., "BR")
 	AutoSeed         bool   // auto-seed from OSM when DB is empty
+	MassTimesAPIKey  string // API key for MassTimes.org (optional, enriches Catholic data)
 }
 
 func Load() *Config {
@@ -62,6 +63,7 @@ func Load() *Config {
 		MaxUploadSizeMB:  getEnvInt("MAX_UPLOAD_SIZE_MB", 10),
 		SeedCountry:      getEnv("SEED_COUNTRY", "BR"),
 		AutoSeed:         getEnvBool("AUTO_SEED", true),
+		MassTimesAPIKey:  getEnv("MASSTIMES_API_KEY", ""),
 	}
 }
 
