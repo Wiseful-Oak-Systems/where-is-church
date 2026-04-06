@@ -136,7 +136,7 @@ func insertElements(db *gorm.DB, elements []overpassElement) error {
 		}
 		seeds = append(seeds, SeedChurch{
 			Name:         name,
-			Denomination: mapDenomination(el.Tags["denomination"]),
+			Denomination: classifyDenomination(el.Tags["denomination"], name),
 			Address:      buildAddress(el.Tags),
 			Latitude:     lat,
 			Longitude:    lng,
@@ -171,21 +171,114 @@ func fetchOverpass(query string) ([]overpassElement, error) {
 	return result.Elements, nil
 }
 
-func mapDenomination(osmDenom string) string {
-	osmDenom = strings.ToLower(strings.TrimSpace(osmDenom))
+// classifyDenomination determines the denomination from the OSM tag AND the church name.
+// When the OSM denomination tag is empty (very common in Brazil), we analyze the name
+// for keywords that indicate the denomination. This prevents "Igreja Evangélica"
+// from being classified as Catholic.
+func classifyDenomination(osmDenom, name string) string {
+	// First: use the explicit tag if present
+	d := strings.ToLower(strings.TrimSpace(osmDenom))
+	if d != "" {
+		return mapDenominationTag(d)
+	}
+
+	// Second: analyze the church name for denomination clues
+	n := strings.ToLower(name)
+
+	// Evangelical / Pentecostal indicators (check first — most common misclassification)
+	evangelicalKeywords := []string{
+		"evangélica", "evangelica", "evangelical",
+		"pentecostal", "assembleia de deus", "assembléia de deus",
+		"assembleia", "assembléia",
+		"batista", "baptist",
+		"adventista", "adventist",
+		"universal do reino", "universal",
+		"deus é amor", "maranata",
+		"quadrangular", "foursquare",
+		"metodista livre", "presbiteriana renovada",
+		"congregação cristã", "congregação",
+		"igreja mundial", "igreja internacional",
+		"comunidade evangélica", "comunidade cristã",
+		"templo evangélico", "missão evangélica",
+		"sara nossa terra", "renascer em cristo",
+		"bola de neve", "hillsong",
+		"igreja de cristo", "church of christ",
+		"igreja do nazareno",
+	}
+	for _, kw := range evangelicalKeywords {
+		if strings.Contains(n, kw) {
+			return "Evangelical"
+		}
+	}
+
+	// Protestant indicators
+	protestantKeywords := []string{
+		"luterana", "lutheran",
+		"presbiteriana", "presbyterian",
+		"metodista", "methodist",
+		"reformada", "reformed",
+		"anglicana", "anglican", "episcopal",
+	}
+	for _, kw := range protestantKeywords {
+		if strings.Contains(n, kw) {
+			if strings.Contains(n, "anglicana") || strings.Contains(n, "episcopal") {
+				return "Anglican"
+			}
+			return "Protestant"
+		}
+	}
+
+	// Orthodox indicators
+	orthodoxKeywords := []string{
+		"ortodoxa", "orthodox", "bizantina", "antioquena",
+	}
+	for _, kw := range orthodoxKeywords {
+		if strings.Contains(n, kw) {
+			return "Orthodox"
+		}
+	}
+
+	// Catholic indicators (explicit)
+	catholicKeywords := []string{
+		"paróquia", "paroquia", "parish",
+		"catedral", "cathedral",
+		"basílica", "basilica",
+		"capela", "chapel",
+		"mosteiro", "monastery", "convento",
+		"santuário", "sanctuary",
+		"nossa senhora", "são ", "santa ", "santo ",
+		"imaculada", "sagrado coração", "divino",
+		"matriz", "igreja católica",
+	}
+	for _, kw := range catholicKeywords {
+		if strings.Contains(n, kw) {
+			return "Catholic"
+		}
+	}
+
+	// If just "Igreja" with no other clues, leave as Other rather than assume Catholic
+	if strings.HasPrefix(n, "igreja ") {
+		return "Other"
+	}
+
+	// Default: Catholic (majority in Brazil, but only for names that don't look Protestant)
+	return "Catholic"
+}
+
+func mapDenominationTag(d string) string {
 	switch {
-	case osmDenom == "catholic" || osmDenom == "roman_catholic" || osmDenom == "católica" || osmDenom == "":
+	case d == "catholic" || d == "roman_catholic" || d == "católica":
 		return "Catholic"
-	case osmDenom == "orthodox" || strings.Contains(osmDenom, "orthodox"):
+	case d == "orthodox" || strings.Contains(d, "orthodox"):
 		return "Orthodox"
-	case osmDenom == "protestant" || osmDenom == "lutheran" || osmDenom == "reformed" ||
-		osmDenom == "presbyterian" || osmDenom == "methodist" || osmDenom == "congregational":
+	case d == "protestant" || d == "lutheran" || d == "reformed" ||
+		d == "presbyterian" || d == "methodist" || d == "congregational":
 		return "Protestant"
-	case osmDenom == "anglican" || osmDenom == "episcopalian":
+	case d == "anglican" || d == "episcopalian":
 		return "Anglican"
-	case osmDenom == "evangelical" || osmDenom == "pentecostal" || osmDenom == "baptist" ||
-		strings.Contains(osmDenom, "assembl") || strings.Contains(osmDenom, "universal") ||
-		osmDenom == "adventist" || osmDenom == "neo_pentecostal":
+	case d == "evangelical" || d == "pentecostal" || d == "baptist" ||
+		strings.Contains(d, "assembl") || strings.Contains(d, "universal") ||
+		d == "adventist" || d == "neo_pentecostal":
 		return "Evangelical"
 	default:
 		return "Other"

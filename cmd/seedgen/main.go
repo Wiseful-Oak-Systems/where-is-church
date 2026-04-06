@@ -162,7 +162,7 @@ out center tags;
 
 		churches = append(churches, Church{
 			Name:         name,
-			Denomination: mapDenomination(el.Tags["denomination"]),
+			Denomination: classifyDenomination(el.Tags["denomination"], name),
 			Address:      buildAddress(el.Tags),
 			Latitude:     lat,
 			Longitude:    lng,
@@ -188,24 +188,67 @@ func writeGzipJSON(path string, data any) error {
 	return enc.Encode(data)
 }
 
-func mapDenomination(d string) string {
-	d = strings.ToLower(strings.TrimSpace(d))
-	switch {
-	case d == "catholic" || d == "roman_catholic" || d == "católica" || d == "":
-		return "Catholic"
-	case d == "orthodox" || strings.Contains(d, "orthodox"):
-		return "Orthodox"
-	case d == "protestant" || d == "lutheran" || d == "reformed" ||
-		d == "presbyterian" || d == "methodist":
-		return "Protestant"
-	case d == "anglican" || d == "episcopalian":
+func classifyDenomination(osmDenom, name string) string {
+	d := strings.ToLower(strings.TrimSpace(osmDenom))
+	if d != "" {
+		switch {
+		case d == "catholic" || d == "roman_catholic" || d == "católica":
+			return "Catholic"
+		case d == "orthodox" || strings.Contains(d, "orthodox"):
+			return "Orthodox"
+		case d == "protestant" || d == "lutheran" || d == "reformed" ||
+			d == "presbyterian" || d == "methodist":
+			return "Protestant"
+		case d == "anglican" || d == "episcopalian":
+			return "Anglican"
+		case d == "evangelical" || d == "pentecostal" || d == "baptist" ||
+			strings.Contains(d, "assembl") || d == "adventist":
+			return "Evangelical"
+		default:
+			return "Other"
+		}
+	}
+
+	n := strings.ToLower(name)
+	evangelicalKW := []string{
+		"evangélica", "evangelica", "pentecostal", "assembleia",
+		"assembléia", "batista", "adventista", "universal",
+		"quadrangular", "congregação cristã", "deus é amor",
+		"maranata", "sara nossa terra", "renascer", "bola de neve",
+		"igreja mundial", "comunidade evangélica", "templo evangélico",
+		"igreja do nazareno", "igreja de cristo",
+	}
+	for _, kw := range evangelicalKW {
+		if strings.Contains(n, kw) {
+			return "Evangelical"
+		}
+	}
+	protestantKW := []string{"luterana", "presbiteriana", "metodista", "reformada"}
+	for _, kw := range protestantKW {
+		if strings.Contains(n, kw) {
+			return "Protestant"
+		}
+	}
+	if strings.Contains(n, "anglicana") || strings.Contains(n, "episcopal") {
 		return "Anglican"
-	case d == "evangelical" || d == "pentecostal" || d == "baptist" ||
-		strings.Contains(d, "assembl") || d == "adventist":
-		return "Evangelical"
-	default:
+	}
+	if strings.Contains(n, "ortodoxa") || strings.Contains(n, "orthodox") {
+		return "Orthodox"
+	}
+	catholicKW := []string{
+		"paróquia", "paroquia", "catedral", "basílica", "capela",
+		"mosteiro", "santuário", "nossa senhora", "são ", "santa ",
+		"santo ", "matriz", "católica", "imaculada", "sagrado",
+	}
+	for _, kw := range catholicKW {
+		if strings.Contains(n, kw) {
+			return "Catholic"
+		}
+	}
+	if strings.HasPrefix(n, "igreja ") {
 		return "Other"
 	}
+	return "Catholic"
 }
 
 func buildAddress(tags map[string]string) string {
