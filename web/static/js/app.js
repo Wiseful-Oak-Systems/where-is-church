@@ -165,7 +165,7 @@ function setCustomLocation(lat, lng) {
     currentLocation = { lat, lng };
     updateLocationMarker(lat, lng);
     triggerSearch();
-    showToast('Custom location set. Searching nearby churches...', 'info');
+    showToast('Localização definida. Buscando igrejas próximas...', 'info');
 }
 
 let locationMarker = null;
@@ -197,14 +197,14 @@ function useMyLocation() {
             updateLocationMarker(lat, lng);
         }
         triggerSearch();
-        showToast('Location found!', 'success');
+        showToast('Localização encontrada!', 'success');
         if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
     }
 
     function onLocationFailed() {
         // Fallback: try IP-based geolocation
         fallbackIPGeolocation(onLocationFound, () => {
-            showToast('Could not detect location. Search a place or click the map.', 'warning');
+            showToast('Não foi possível detectar a localização. Busque um local ou clique no mapa.', 'warning');
             if (btn) { btn.classList.remove('btn--loading'); btn.disabled = false; }
         });
     }
@@ -242,7 +242,7 @@ async function fallbackIPGeolocation(onSuccess, onError) {
             const data = await res.json();
             const result = provider.parse(data);
             if (result.lat && result.lng) {
-                showToast(`Approximate location: ${result.city || 'detected via IP'}`, 'info');
+                showToast(`Localização aproximada: ${result.city || 'detectada via IP'}`, 'info');
                 onSuccess(result.lat, result.lng);
                 return;
             }
@@ -270,7 +270,7 @@ async function searchChurches(lat, lng, radius, denomination) {
         const countEl = document.getElementById('results-count');
 
         if (!churches || churches.length === 0) {
-            if (list) list.innerHTML = '<p class="church-list-empty">No churches found in this area. Try increasing the radius or changing the denomination filter.</p>';
+            if (list) list.innerHTML = '<p class="church-list-empty">Nenhuma igreja encontrada nesta área. Tente aumentar o raio ou mudar a denominação.</p>';
             if (countEl) countEl.textContent = '0 results';
             return [];
         }
@@ -299,7 +299,7 @@ async function searchChurches(lat, lng, radius, denomination) {
         return churches;
     } catch (err) {
         const list = document.getElementById('church-list');
-        if (list) list.innerHTML = '<p class="church-list-empty">Search failed. Please try again.</p>';
+        if (list) list.innerHTML = '<p class="church-list-empty">Falha na busca. Tente novamente.</p>';
         showToast('Search failed: ' + err.message, 'error');
         return [];
     }
@@ -626,10 +626,10 @@ function initSuggestionForm() {
         // Update placeholder based on type
         if (contentField) {
             const placeholders = {
-                'new_church': 'Mass times, special features, how to get there...',
-                'edit_church': 'What needs to be corrected? (address, phone, name...)',
-                'schedule': 'What are the correct mass times?',
-                'general': 'Your feedback or suggestion...',
+                'new_church': 'Horários de missa, características especiais, como chegar...',
+                'edit_church': 'O que precisa ser corrigido? (endereço, telefone, nome...)',
+                'schedule': 'Quais são os horários corretos de missa?',
+                'general': 'Seu feedback ou sugestão...',
             };
             contentField.placeholder = placeholders[type] || 'Details...';
         }
@@ -681,14 +681,14 @@ function initSuggestionForm() {
     if (pickBtn) {
         pickBtn.addEventListener('click', () => {
             closeSuggestionModal();
-            showToast('Click on the map to set the church location.', 'info');
+            showToast('Clique no mapa para definir a localização da igreja.', 'info');
             if (map) map.getContainer().style.cursor = 'crosshair';
             const handler = (e) => {
                 document.getElementById('proposal-lat').value = e.latlng.lat.toFixed(6);
                 document.getElementById('proposal-lng').value = e.latlng.lng.toFixed(6);
                 map.getContainer().style.cursor = '';
                 map.off('click', handler);
-                showToast('Location set! Reopening the form...', 'success');
+                showToast('Localização definida! Reabrindo o formulário...', 'success');
                 setTimeout(() => openSuggestionModal(), 500);
             };
             if (map) map.on('click', handler);
@@ -701,7 +701,7 @@ function initSuggestionForm() {
         const type = typeSelect?.value;
         const content = contentField?.value;
         if (!type || !content) {
-            showToast('Please fill in all required fields.', 'warning');
+            showToast('Preencha todos os campos obrigatórios.', 'warning');
             return;
         }
 
@@ -711,7 +711,7 @@ function initSuggestionForm() {
         if (type === 'new_church') {
             const name = document.getElementById('proposal-name')?.value;
             const address = document.getElementById('proposal-address')?.value;
-            if (!name) { showToast('Please enter the church name.', 'warning'); return; }
+            if (!name) { showToast('Informe o nome da igreja.', 'warning'); return; }
             body.proposal = {
                 name,
                 address: address || '',
@@ -728,7 +728,7 @@ function initSuggestionForm() {
 
         try {
             await api('/suggestions', { method: 'POST', body: JSON.stringify(body) });
-            showToast('Suggestion submitted! Thank you.', 'success');
+            showToast('Sugestão enviada! Obrigado pela contribuição.', 'success');
             closeSuggestionModal();
             form.reset();
             updateFormFields();
@@ -776,7 +776,7 @@ function initLocationBtn() {
             setBtn.classList.toggle('btn-primary', pickMode);
             setBtn.classList.toggle('btn-outline', !pickMode);
             if (pickMode) {
-                showToast('Click on the map to set your location.', 'info');
+                showToast('Clique no mapa para definir sua localização.', 'info');
                 if (map) map.getContainer().style.cursor = 'crosshair';
             } else {
                 if (map) map.getContainer().style.cursor = '';
@@ -1012,11 +1012,11 @@ async function init() {
             useMyLocation();
         } catch (err) {
             console.error('Map initialization failed:', err);
-            showToast('Map failed to load. Please refresh the page.', 'error');
+            showToast('Falha ao carregar o mapa. Atualize a página.', 'error');
         }
     } else if (mapEl) {
         console.warn('Leaflet library not loaded. Map disabled.');
-        mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-gray-400);text-align:center;padding:2rem"><p>Map is loading...<br>If this persists, check your internet connection and refresh.</p></div>';
+        mapEl.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-gray-400);text-align:center;padding:2rem"><p>Carregando mapa...<br>Se persistir, verifique sua conexão e atualize a página.</p></div>';
     }
 
     // Initialize auth forms

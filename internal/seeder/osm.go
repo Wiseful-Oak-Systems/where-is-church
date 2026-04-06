@@ -50,7 +50,7 @@ type overpassCenter struct {
 }
 
 // SeedIfEmpty checks if the churches table is empty and seeds from OSM if so.
-// This runs on app startup so the first `docker compose up` just works.
+// Seeds São Paulo first (fast, ~5K churches) then the rest of Brazil in background.
 func SeedIfEmpty(db *gorm.DB, countryCode string) {
 	var count int64
 	db.Model(&models.Church{}).Count(&count)
@@ -59,12 +59,37 @@ func SeedIfEmpty(db *gorm.DB, countryCode string) {
 		return
 	}
 
-	log.Printf("Database is empty — auto-seeding churches from OpenStreetMap (%s)...", countryCode)
+	log.Printf("Database is empty — seeding churches from OpenStreetMap...")
+
+	// Phase 1: Seed São Paulo metro area first (fast, gives immediate results)
 	go func() {
+		log.Println("Phase 1: Seeding São Paulo metro area...")
+		spQuery := `
+[out:json][timeout:120];
+(
+  node["amenity"="place_of_worship"]["religion"="christian"](-24.1,-47.2,-23.2,-46.2);
+  way["amenity"="place_of_worship"]["religion"="christian"](-24.1,-47.2,-23.2,-46.2);
+);
+out center tags;
+`
+		if err := seedFromQuery(db, spQuery); err != nil {
+			log.Printf("São Paulo seed failed: %v", err)
+		}
+
+		// Phase 2: Seed the rest of Brazil
+		log.Println("Phase 2: Seeding rest of Brazil (this takes a few minutes)...")
 		if err := Seed(db, countryCode); err != nil {
-			log.Printf("Auto-seed failed: %v (you can run 'make seed' manually)", err)
+			log.Printf("Full Brazil seed failed: %v (try 'make seed' manually)", err)
 		}
 	}()
+}
+
+func seedFromQuery(db *gorm.DB, query string) error {
+	elements, err := fetchOverpass(query)
+	if err != nil {
+		return err
+	}
+	return insertElements(db, elements)
 }
 
 // Seed fetches all churches from OSM for the given country and inserts them.
@@ -74,7 +99,11 @@ func Seed(db *gorm.DB, countryCode string) error {
 	if err != nil {
 		return fmt.Errorf("overpass fetch failed: %w", err)
 	}
-	log.Printf("Received %d elements from OpenStreetMap", len(elements))
+	return insertElements(db, elements)
+}
+
+func insertElements(db *gorm.DB, elements []overpassElement) error {
+	log.Printf("Processing %d elements from OpenStreetMap...", len(elements))
 
 	inserted, skipped := 0, 0
 	for i, el := range elements {
