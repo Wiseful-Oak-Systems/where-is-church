@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -49,8 +50,8 @@ type overpassCenter struct {
 	Lon float64 `json:"lon"`
 }
 
-// SeedIfEmpty checks if the churches table is empty and seeds from OSM if so.
-// Seeds São Paulo first (fast, ~5K churches) then the rest of Brazil in background.
+// SeedIfEmpty loads seed files from seeds/ directory if available,
+// otherwise falls back to live Overpass API download.
 func SeedIfEmpty(db *gorm.DB, countryCode string) {
 	var count int64
 	db.Model(&models.Church{}).Count(&count)
@@ -59,10 +60,22 @@ func SeedIfEmpty(db *gorm.DB, countryCode string) {
 		return
 	}
 
-	log.Printf("Database is empty — seeding churches from OpenStreetMap...")
-
-	// Phase 1: Seed São Paulo metro area first (fast, gives immediate results)
 	go func() {
+		// Try loading from local seed file first (fast, reliable)
+		seedFile := fmt.Sprintf("seeds/%s.json.gz", strings.ToLower(countryCode))
+		if _, err := os.Stat(seedFile); err == nil {
+			log.Printf("Found seed file %s — loading...", seedFile)
+			if err := LoadSeedFile(db, seedFile); err != nil {
+				log.Printf("Seed file load failed: %v — falling back to API", err)
+			} else {
+				return
+			}
+		}
+
+		// Fallback: download from Overpass API
+		log.Println("No seed file found — downloading from OpenStreetMap...")
+
+		// Phase 1: São Paulo metro area first (fast)
 		log.Println("Phase 1: Seeding São Paulo metro area...")
 		spQuery := `
 [out:json][timeout:120];
@@ -76,10 +89,10 @@ out center tags;
 			log.Printf("São Paulo seed failed: %v", err)
 		}
 
-		// Phase 2: Seed the rest of Brazil
-		log.Println("Phase 2: Seeding rest of Brazil (this takes a few minutes)...")
+		// Phase 2: Rest of the country
+		log.Printf("Phase 2: Seeding rest of %s...", countryCode)
 		if err := Seed(db, countryCode); err != nil {
-			log.Printf("Full Brazil seed failed: %v (try 'make seed' manually)", err)
+			log.Printf("Full seed failed: %v (run 'make seed-gen' then 'make seed-load')", err)
 		}
 	}()
 }

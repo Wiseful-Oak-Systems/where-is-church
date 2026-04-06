@@ -82,6 +82,17 @@ clean:
 docker-build:
 	docker build -t where-is-church:latest .
 
-## seed: Import all Brazilian churches from OpenStreetMap (requires running database)
+## seed: Load seed files into database (or download from OSM if no files)
 seed:
 	go run ./cmd/seed
+
+## seed-gen: Download churches from OSM and save as seed files (run on your machine)
+seed-gen:
+	go run ./cmd/seedgen BR
+
+## seed-gen-all: Download all supported countries
+seed-gen-all:
+	go run ./cmd/seedgen ALL
+
+## seed-load: Load all seed files from seeds/ into database
+seed-load: seed

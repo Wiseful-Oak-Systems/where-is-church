@@ -19,6 +19,7 @@ COPY --from=builder /bin/whereischurch /bin/whereischurch
 COPY --from=builder /app/web /app/web
 COPY --from=builder /app/locales /app/locales
 COPY --from=builder /app/migrations /app/migrations
+COPY --from=builder /app/seeds /app/seeds
 
 WORKDIR /app
 

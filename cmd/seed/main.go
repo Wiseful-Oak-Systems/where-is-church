@@ -10,18 +10,23 @@ import (
 )
 
 func main() {
-	log.Println("=== Where is Church? — OSM Data Seeder ===")
+	log.Println("=== Where is Church? — Data Seeder ===")
 
 	cfg := config.Load()
 	db := database.Connect(cfg)
 
-	country := cfg.SeedCountry
-	if len(os.Args) > 1 {
-		country = os.Args[1]
-	}
+	// If seed files exist, load them. Otherwise download from OSM.
+	if err := seeder.LoadAllSeedFiles(db, "seeds"); err != nil {
+		log.Printf("No seed files found: %v", err)
 
-	log.Printf("Seeding churches for country: %s", country)
-	if err := seeder.Seed(db, country); err != nil {
-		log.Fatalf("Seed failed: %v", err)
+		country := cfg.SeedCountry
+		if len(os.Args) > 1 {
+			country = os.Args[1]
+		}
+
+		log.Printf("Downloading from OpenStreetMap for %s...", country)
+		if err := seeder.Seed(db, country); err != nil {
+			log.Fatalf("Seed failed: %v", err)
+		}
 	}
 }

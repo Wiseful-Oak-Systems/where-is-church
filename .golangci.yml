@@ -32,9 +32,10 @@ linters:
           - errcheck
           - goconst
           - unparam
-      - path: cmd/seed/
+      - path: cmd/
         linters:
           - gosec
+          - errcheck
       - path: internal/seeder/
         linters:
           - gosec
