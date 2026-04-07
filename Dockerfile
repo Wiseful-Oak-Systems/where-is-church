@@ -7,6 +7,7 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /bin/whereischurch ./cmd/server
+RUN mkdir -p /app/seeds
 
 FROM alpine:3.20
 
