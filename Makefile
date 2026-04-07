@@ -4,6 +4,11 @@
 help:
 	@grep -E '^## ' Makefile | sed 's/## //'
 
+## setup: Configure git hooks for conventional commits
+setup:
+	git config core.hooksPath .githooks
+	@echo "Git hooks configured. Commit messages must follow Conventional Commits format."
+
 ## up: Start the full stack (db + app) with Docker Compose
 up:
 	docker compose up -d --build

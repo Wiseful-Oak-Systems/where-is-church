@@ -10,6 +10,37 @@ permissions:
   contents: read
 
 jobs:
+  commit-lint:
+    name: Commit Lint
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Conventional Commits
+        run: |
+          commits=$(git log --format="%s" origin/main..HEAD)
+          pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+"
+          failed=0
+          while IFS= read -r msg; do
+            if [ -z "$msg" ]; then continue; fi
+            if ! echo "$msg" | grep -qE "$pattern"; then
+              echo "❌ $msg"
+              failed=1
+            else
+              echo "✅ $msg"
+            fi
+          done <<< "$commits"
+          if [ "$failed" -eq 1 ]; then
+            echo ""
+            echo "Some commits don't follow Conventional Commits format."
+            echo "Expected: <type>(<scope>): <description>"
+            echo "Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+            exit 1
+          fi
+
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -18,7 +49,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version-file: go.mod
           cache: true
 
       - name: Install build dependencies
@@ -38,7 +69,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version-file: go.mod
           cache: true
 
       - name: golangci-lint
@@ -55,11 +86,17 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version-file: go.mod
           cache: true
 
-      - name: Build binary
+      - name: Build server
         run: CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/whereischurch ./cmd/server
+
+      - name: Build seed tool
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/seed ./cmd/seed
+
+      - name: Build seedgen tool
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/seedgen ./cmd/seedgen
 
       - name: Build Docker image
         run: docker build -t where-is-church:test .

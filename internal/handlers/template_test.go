@@ -37,7 +37,7 @@ func TestLoginTemplateRendering(t *testing.T) {
 
 	t.Run("Login page has lang attribute for screen readers", func(t *testing.T) {
 		w := renderTemplate("login.html", nil)
-		assertContains(t, w.Body.String(), `lang="en"`, "lang attribute")
+		assertContains(t, w.Body.String(), `lang="pt-BR"`, "lang attribute")
 	})
 
 	t.Run("Login page has error div with aria-live for accessibility", func(t *testing.T) {

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Create Account &mdash; Where is Church?</title>
+  <title>Criar Conta &mdash; Where is Church?</title>
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body class="auth-page">
@@ -13,44 +13,44 @@
       <header class="auth-header">
         <span class="auth-icon" aria-hidden="true">&#9962;</span>
         <h1 class="auth-title">Where is Church?</h1>
-        <p class="auth-subtitle">Create a free account</p>
+        <p class="auth-subtitle">Crie sua conta gratuita</p>
       </header>
 
       <form id="register-form" class="auth-form" novalidate>
         <div class="form-group">
-          <label for="name" class="form-label">Full name</label>
+          <label for="name" class="form-label">Nome completo</label>
           <input
             type="text"
             id="name"
             name="name"
             class="form-input"
-            placeholder="Your name"
+            placeholder="Seu nome"
             autocomplete="name"
             required
           >
         </div>
 
         <div class="form-group">
-          <label for="email" class="form-label">Email address</label>
+          <label for="email" class="form-label">E-mail</label>
           <input
             type="email"
             id="email"
             name="email"
             class="form-input"
-            placeholder="you@example.com"
+            placeholder="voce@exemplo.com"
             autocomplete="email"
             required
           >
         </div>
 
         <div class="form-group">
-          <label for="password" class="form-label">Password</label>
+          <label for="password" class="form-label">Senha</label>
           <input
             type="password"
             id="password"
             name="password"
             class="form-input"
-            placeholder="At least 8 characters"
+            placeholder="Mínimo 8 caracteres"
             autocomplete="new-password"
             minlength="8"
             required
@@ -58,24 +58,24 @@
         </div>
 
         <div class="form-group">
-          <label for="denomination" class="form-label">Denomination</label>
+          <label for="denomination" class="form-label">Denominação</label>
           <select id="denomination" name="denomination" class="form-select">
-            <option value="Catholic" selected>Catholic</option>
-            <option value="Orthodox">Orthodox</option>
-            <option value="Protestant">Protestant</option>
-            <option value="Anglican">Anglican</option>
-            <option value="Evangelical">Evangelical</option>
-            <option value="Other">Other</option>
+            <option value="Catholic" selected>Católica</option>
+            <option value="Orthodox">Ortodoxa</option>
+            <option value="Protestant">Protestante</option>
+            <option value="Anglican">Anglicana</option>
+            <option value="Evangelical">Evangélica</option>
+            <option value="Other">Outra</option>
           </select>
         </div>
 
         <div id="register-error" class="form-error" role="alert" aria-live="polite" hidden></div>
 
-        <button type="submit" class="btn btn-primary btn-block">Create account</button>
+        <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
       </form>
 
       <footer class="auth-footer">
-        <p>Already have an account? <a href="/login" class="auth-link">Sign in</a></p>
+        <p>Já tem uma conta? <a href="/login" class="auth-link">Entre aqui</a></p>
       </footer>
     </div>
   </main>
@@ -107,21 +107,21 @@
         var denomination = document.getElementById('denomination').value;
 
         if (!name) {
-          showError('Please enter your name.');
+          showError('Preencha seu nome.');
           return;
         }
         if (!email) {
-          showError('Please enter your email address.');
+          showError('Preencha seu e-mail.');
           return;
         }
         if (password.length < 8) {
-          showError('Password must be at least 8 characters.');
+          showError('A senha deve ter pelo menos 8 caracteres.');
           return;
         }
 
         var btn = form.querySelector('button[type="submit"]');
         btn.disabled = true;
-        btn.textContent = 'Creating account\u2026';
+        btn.textContent = 'Criando conta\u2026';
 
         fetch('/api/auth/register', {
           method: 'POST',
@@ -141,14 +141,14 @@
           })
           .then(function (result) {
             if (!result.ok) {
-              throw new Error(result.data.error || 'Registration failed. Please try again.');
+              throw new Error(result.data.error || 'Falha no cadastro. Tente novamente.');
             }
             window.location.href = '/';
           })
           .catch(function (err) {
             showError(err.message);
             btn.disabled = false;
-            btn.textContent = 'Create account';
+            btn.textContent = 'Criar conta';
           });
       }
 

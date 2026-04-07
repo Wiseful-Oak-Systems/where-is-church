@@ -16,7 +16,7 @@ async function api(path, options = {}) {
         ...options,
     });
     if (res.status === 401) { window.location.href = '/login'; throw new Error('Session expired'); }
-    if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Request failed'); }
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error || 'Requisição falhou'); }
     return res.json();
 }
 
@@ -68,7 +68,7 @@ async function register(name, email, password, denomination) {
             method: 'POST',
             body: JSON.stringify({ name, email, password, denomination }),
         });
-        showToast('Account created! Welcome.', 'success');
+        showToast('Conta criada! Bem-vindo.', 'success');
         window.location.href = '/';
     } catch (err) {
         showToast(err.message, 'error');
@@ -82,7 +82,7 @@ async function login(email, password) {
             method: 'POST',
             body: JSON.stringify({ email, password }),
         });
-        showToast('Welcome back!', 'success');
+        showToast('Bem-vindo de volta!', 'success');
         window.location.href = '/';
     } catch (err) {
         showToast(err.message, 'error');
@@ -113,7 +113,7 @@ async function updateProfile(name, denomination, latitude, longitude) {
             method: 'PUT',
             body: JSON.stringify({ name, denomination, latitude, longitude }),
         });
-        showToast('Profile updated.', 'success');
+        showToast('Perfil atualizado.', 'success');
         return data;
     } catch (err) {
         showToast(err.message, 'error');
@@ -182,7 +182,7 @@ function updateLocationMarker(lat, lng) {
         });
         locationMarker = L.marker([lat, lng], { icon, zIndexOffset: 1000 })
             .addTo(map)
-            .bindTooltip('Your location', { permanent: false });
+            .bindTooltip('Sua localização', { permanent: false });
     }
 }
 
@@ -300,7 +300,7 @@ async function searchChurches(lat, lng, radius, denomination) {
     } catch (err) {
         const list = document.getElementById('church-list');
         if (list) list.innerHTML = '<p class="church-list-empty">Falha na busca. Tente novamente.</p>';
-        showToast('Search failed: ' + err.message, 'error');
+        showToast('Falha na busca: ' + err.message, 'error');
         return [];
     }
 }
@@ -389,7 +389,7 @@ async function loadChurchDetail(id) {
         const church = await api(`/churches/${id}`);
         renderChurchDetail(church);
     } catch (err) {
-        showToast('Could not load church details: ' + err.message, 'error');
+        showToast('Falha ao carregar detalhes: ' + err.message, 'error');
         if (panel) panel.innerHTML = '<p class="error-text">Failed to load church details.</p>';
     }
 }
@@ -463,7 +463,7 @@ async function checkIn(churchId, notes = '') {
             body: JSON.stringify({ church_id: churchId, notes }),
         });
         showCheckInAnimation();
-        showToast('You have checked in! God bless you.', 'success');
+        showToast('Check-in realizado! Deus te abençoe.', 'success');
     } catch (err) {
         showToast('Check-in failed: ' + err.message, 'error');
     }
@@ -492,7 +492,7 @@ async function getMyCheckins() {
     try {
         return await api('/checkins/mine');
     } catch (err) {
-        showToast('Could not load check-ins: ' + err.message, 'error');
+        showToast('Falha ao carregar check-ins: ' + err.message, 'error');
         return [];
     }
 }
@@ -501,7 +501,7 @@ async function getCheckinStats() {
     try {
         return await api('/checkins/stats');
     } catch (err) {
-        showToast('Could not load stats.', 'error');
+        showToast('Falha ao carregar estatísticas.', 'error');
         return null;
     }
 }
@@ -534,10 +534,10 @@ async function submitSuggestion(churchId, type, content) {
                 content,
             }),
         });
-        showToast('Suggestion submitted. Thank you!', 'success');
+        showToast('Sugestão enviada. Obrigado!', 'success');
         closeSuggestionModal();
     } catch (err) {
-        showToast('Could not submit suggestion: ' + err.message, 'error');
+        showToast('Falha ao enviar sugestão: ' + err.message, 'error');
     }
 }
 
@@ -545,7 +545,7 @@ async function getMySuggestions() {
     try {
         return await api('/suggestions/mine');
     } catch (err) {
-        showToast('Could not load suggestions.', 'error');
+        showToast('Falha ao carregar sugestões.', 'error');
         return [];
     }
 }
@@ -942,7 +942,7 @@ async function geocodeAddress(query) {
         const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
         const results = await res.json();
         if (!results.length) {
-            showToast('Location not found. Try a different search.', 'warning');
+            showToast('Local não encontrado. Tente outra busca.', 'warning');
             return;
         }
         const { lat, lon, display_name } = results[0];
@@ -950,7 +950,7 @@ async function geocodeAddress(query) {
         map.setView([parseFloat(lat), parseFloat(lon)], 13);
         showToast(`Found: ${display_name.split(',').slice(0, 2).join(',')}`, 'success');
     } catch (err) {
-        showToast('Search failed. Please try again.', 'error');
+        showToast('Falha na busca. Tente novamente.', 'error');
     }
 }
 
@@ -1340,8 +1340,8 @@ async function initProfilePage() {
                             denomination: document.getElementById('edit-denomination').value,
                         }),
                     });
-                    showFormSuccess('edit-profile-success', 'Profile updated!');
-                    showToast('Profile updated!', 'success');
+                    showFormSuccess('edit-profile-success', 'Perfil atualizado.');
+                    showToast('Perfil atualizado.', 'success');
                 } catch (err) {
                     showFormError('edit-profile-error', err.message);
                 }

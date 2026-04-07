@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login &mdash; Where is Church?</title>
+  <title>Entrar &mdash; Where is Church?</title>
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body class="auth-page">
@@ -13,31 +13,31 @@
       <header class="auth-header">
         <span class="auth-icon" aria-hidden="true">&#9962;</span>
         <h1 class="auth-title">Where is Church?</h1>
-        <p class="auth-subtitle">Sign in to find Mass near you</p>
+        <p class="auth-subtitle">Entre para encontrar a Missa perto de você</p>
       </header>
 
       <form id="login-form" class="auth-form" novalidate>
         <div class="form-group">
-          <label for="email" class="form-label">Email address</label>
+          <label for="email" class="form-label">E-mail</label>
           <input
             type="email"
             id="email"
             name="email"
             class="form-input"
-            placeholder="you@example.com"
+            placeholder="voce@exemplo.com"
             autocomplete="email"
             required
           >
         </div>
 
         <div class="form-group">
-          <label for="password" class="form-label">Password</label>
+          <label for="password" class="form-label">Senha</label>
           <input
             type="password"
             id="password"
             name="password"
             class="form-input"
-            placeholder="Your password"
+            placeholder="Sua senha"
             autocomplete="current-password"
             required
           >
@@ -45,11 +45,11 @@
 
         <div id="login-error" class="form-error" role="alert" aria-live="polite" hidden></div>
 
-        <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
       </form>
 
       <footer class="auth-footer">
-        <p>Don&rsquo;t have an account? <a href="/register" class="auth-link">Create one</a></p>
+        <p>Não tem uma conta? <a href="/register" class="auth-link">Crie uma</a></p>
       </footer>
     </div>
   </main>
@@ -79,13 +79,13 @@
         var password = document.getElementById('password').value;
 
         if (!email || !password) {
-          showError('Please enter your email and password.');
+          showError('Preencha seu e-mail e senha.');
           return;
         }
 
         var btn = form.querySelector('button[type="submit"]');
         btn.disabled = true;
-        btn.textContent = 'Signing in\u2026';
+        btn.textContent = 'Entrando\u2026';
 
         fetch('/api/auth/login', {
           method: 'POST',
@@ -100,14 +100,14 @@
           })
           .then(function (result) {
             if (!result.ok) {
-              throw new Error(result.data.error || 'Login failed. Please try again.');
+              throw new Error(result.data.error || 'Falha no login. Tente novamente.');
             }
             window.location.href = '/';
           })
           .catch(function (err) {
             showError(err.message);
             btn.disabled = false;
-            btn.textContent = 'Sign in';
+            btn.textContent = 'Entrar';
           });
       }
 
