@@ -33,19 +33,14 @@ func RecalculateUserReputation(db *gorm.DB, userID uint) (*models.UserReputation
 	var rep models.UserReputation
 	db.Where("user_id = ?", userID).FirstOrCreate(&rep, models.UserReputation{UserID: userID})
 
-	// Count check-ins
-	var checkinCount int64
+	var checkinCount, suggCount, approvedCount, rejectedCount int64
 	db.Model(&models.CheckIn{}).Where("user_id = ?", userID).Count(&checkinCount)
-	rep.CheckInCount = int(checkinCount)
-
-	// Count suggestions
-	var suggCount int64
 	db.Model(&models.Suggestion{}).Where("user_id = ?", userID).Count(&suggCount)
-	rep.SuggestionCount = int(suggCount)
-
-	var approvedCount, rejectedCount int64
 	db.Model(&models.Suggestion{}).Where("user_id = ? AND status = ?", userID, models.SuggestionApproved).Count(&approvedCount)
 	db.Model(&models.Suggestion{}).Where("user_id = ? AND status = ?", userID, models.SuggestionRejected).Count(&rejectedCount)
+
+	rep.CheckInCount = int(checkinCount)
+	rep.SuggestionCount = int(suggCount)
 	rep.ApprovedCount = int(approvedCount)
 	rep.RejectedCount = int(rejectedCount)
 
@@ -53,27 +48,29 @@ func RecalculateUserReputation(db *gorm.DB, userID uint) (*models.UserReputation
 		rep.ReportAccuracy = float64(approvedCount) / float64(approvedCount+rejectedCount)
 	}
 
-	// Calculate consecutive check-in days
-	var lastCheckin models.CheckIn
-	if err := db.Where("user_id = ?", userID).Order("created_at DESC").First(&lastCheckin).Error; err == nil {
-		rep.LastCheckInDate = &lastCheckin.CreatedAt
+	// Count consecutive check-in days (efficient: single query for last 30 days)
+	var recentCheckins []models.CheckIn
+	db.Where("user_id = ? AND created_at > ?", userID, time.Now().AddDate(0, 0, -30)).
+		Order("created_at DESC").Limit(30).Find(&recentCheckins)
 
-		// Count consecutive days (simplified: check if last 7 days have check-ins)
-		streak := 0
-		for i := 0; i < 365; i++ {
-			day := time.Now().AddDate(0, 0, -i)
-			dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)
-			dayEnd := dayStart.Add(24 * time.Hour)
-			var count int64
-			db.Model(&models.CheckIn{}).Where("user_id = ? AND created_at >= ? AND created_at < ?", userID, dayStart, dayEnd).Count(&count)
-			if count > 0 {
+	streak := 0
+	if len(recentCheckins) > 0 {
+		rep.LastCheckInDate = &recentCheckins[0].CreatedAt
+		seen := make(map[string]bool)
+		for _, ci := range recentCheckins {
+			day := ci.CreatedAt.Format("2006-01-02")
+			seen[day] = true
+		}
+		for i := 0; i < 30; i++ {
+			day := time.Now().AddDate(0, 0, -i).Format("2006-01-02")
+			if seen[day] {
 				streak++
 			} else {
 				break
 			}
 		}
-		rep.ConsecutiveDays = streak
 	}
+	rep.ConsecutiveDays = streak
 
 	// Compute trust score
 	var user models.User
@@ -93,7 +90,6 @@ func RecalculateUserReputation(db *gorm.DB, userID uint) (*models.UserReputation
 		rep.TrustScore = 0
 	}
 
-	// Determine level
 	rep.Level = 1
 	for level := 5; level >= 1; level-- {
 		if rep.TrustScore >= models.TrustThresholds[level] {

@@ -1,6 +1,6 @@
 // Church Finder App - Main JavaScript
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_NAMES = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
 // Global state
 let map = null;
@@ -271,11 +271,11 @@ async function searchChurches(lat, lng, radius, denomination) {
 
         if (!churches || churches.length === 0) {
             if (list) list.innerHTML = '<p class="church-list-empty">Nenhuma igreja encontrada nesta área. Tente aumentar o raio ou mudar a denominação.</p>';
-            if (countEl) countEl.textContent = '0 results';
+            if (countEl) countEl.textContent = '0 resultados';
             return [];
         }
         churches.forEach((church) => placeChurchMarker(church));
-        if (countEl) countEl.textContent = `${churches.length} result${churches.length !== 1 ? 's' : ''}`;
+        if (countEl) countEl.textContent = `${churches.length} resultado${churches.length !== 1 ? 's' : ''}`;
 
         // Render church cards in sidebar
         if (list) {
@@ -290,7 +290,7 @@ async function searchChurches(lat, lng, radius, denomination) {
                         </div>
                     </div>
                     <div class="church-card-actions">
-                        <a href="/church/${ch.id}" class="btn btn-sm btn-outline">View</a>
+                        <a href="/church/${ch.id}" class="btn btn-sm btn-outline">Ver</a>
                     </div>
                 </article>
             `).join('');
@@ -342,7 +342,7 @@ function placeChurchMarker(church) {
     });
 
     const distKm = church.distance != null ? church.distance : null;
-    const distanceText = distKm != null ? `${distKm.toFixed(1)} km away` : '';
+    const distanceText = distKm != null ? `${distKm.toFixed(1)} km` : '';
     const massCount = (church.schedules || []).length;
     const directionsUrl = `https://www.openstreetmap.org/directions?from=&to=${church.latitude},${church.longitude}`;
 
@@ -352,11 +352,11 @@ function placeChurchMarker(church) {
             <span class="denomination-badge denomination-badge--${(church.denomination || 'other').toLowerCase()}">${escapeHtml(church.denomination || 'Unknown')}</span>
             ${distanceText ? `<p class="popup-distance">${escapeHtml(distanceText)}</p>` : ''}
             ${church.address ? `<p class="popup-address">${escapeHtml(church.address)}</p>` : ''}
-            ${massCount > 0 ? `<p class="popup-address">${massCount} scheduled service${massCount !== 1 ? 's' : ''}</p>` : ''}
-            <a href="${directionsUrl}" target="_blank" rel="noopener" class="directions-link">&#x2794; Get directions</a>
+            ${massCount > 0 ? `<p class="popup-address">${massCount} serviço agendado${massCount !== 1 ? 's' : ''}</p>` : ''}
+            <a href="${directionsUrl}" target="_blank" rel="noopener" class="directions-link">&#x2794; Como chegar</a>
             <div style="margin-top:.5rem;display:flex;gap:.3rem">
-                <a href="/church/${church.id}" class="btn btn-sm btn-primary popup-link">View</a>
-                <button class="btn btn-sm btn-outline" onclick="checkIn('${church.id}')">Check In</button>
+                <a href="/church/${church.id}" class="btn btn-sm btn-primary popup-link">Ver</a>
+                <button class="btn btn-sm btn-outline" onclick="checkIn('${church.id}')">Check-in</button>
             </div>
         </div>
     `;
@@ -444,7 +444,7 @@ function renderChurchDetail(church) {
 
             <div class="church-detail__actions">
                 <button class="btn btn--primary" onclick="checkIn('${church.id}')">
-                    Check In Here
+                    Check-in Here
                 </button>
                 <button class="btn btn--secondary" onclick="openSuggestionModal('${church.id}')">
                     Suggest a Change
@@ -465,7 +465,7 @@ async function checkIn(churchId, notes = '') {
         showCheckInAnimation();
         showToast('Check-in realizado! Deus te abençoe.', 'success');
     } catch (err) {
-        showToast('Check-in failed: ' + err.message, 'error');
+        showToast('Falha no check-in: ' + err.message, 'error');
     }
 }
 
@@ -1138,7 +1138,7 @@ async function initChurchDetailPage(churchId) {
                             notes: document.getElementById('sched-notes').value,
                         }),
                     });
-                    showToast('Schedule added!', 'success');
+                    showToast('Horário adicionado!', 'success');
                     const updated = await api('/churches/' + churchId);
                     renderSchedule(updated.schedules || []);
                     schedForm.reset();
@@ -1177,8 +1177,8 @@ async function initChurchDetailPage(churchId) {
                             verified: document.getElementById('edit-verified')?.checked || false,
                         }),
                     });
-                    showFormSuccess('edit-church-success', 'Church updated!');
-                    showToast('Church updated!', 'success');
+                    showFormSuccess('edit-church-success', 'Igreja atualizada!');
+                    showToast('Igreja atualizada!', 'success');
                 } catch (err) {
                     showFormError('edit-church-error', err.message);
                 }
@@ -1199,7 +1199,7 @@ async function initChurchDetailPage(churchId) {
                             content: document.getElementById('church-sugg-content').value,
                         }),
                     });
-                    showFormSuccess('church-sugg-success', 'Suggestion submitted! Thank you.');
+                    showFormSuccess('church-sugg-success', 'Sugestão enviada! Obrigado.');
                     suggForm.reset();
                 } catch (err) {
                     showFormError('church-sugg-error', err.message);
@@ -1275,7 +1275,7 @@ async function doCheckin(churchId) {
         });
         showToast('Checked in! God bless.', 'success');
         const msg = document.getElementById('checkin-msg');
-        if (msg) { msg.textContent = 'Checked in successfully!'; msg.hidden = false; }
+        if (msg) { msg.textContent = 'Check-in realizado!'; msg.hidden = false; }
         loadChurchCheckins(churchId);
     } catch (err) {
         const errEl = document.getElementById('checkin-error');
@@ -1384,7 +1384,7 @@ async function initProfilePage() {
         }
     } catch (err) {
         if (loading) loading.hidden = true;
-        showToast('Failed to load profile', 'error');
+        showToast('Falha ao carregar perfil', 'error');
     }
 }
 
@@ -1483,7 +1483,7 @@ async function loadAdminUsers() {
                         method: 'PUT',
                         body: JSON.stringify({ role: select.value }),
                     });
-                    showToast('Role updated', 'success');
+                    showToast('Função atualizada', 'success');
                 } catch (err) {
                     showToast(err.message, 'error');
                 }
@@ -1491,7 +1491,7 @@ async function loadAdminUsers() {
         });
     } catch (err) {
         if (loading) loading.hidden = true;
-        showToast('Failed to load users', 'error');
+        showToast('Falha ao carregar usuários', 'error');
     }
 }
 
@@ -1533,7 +1533,7 @@ async function loadAdminChurches() {
         });
     } catch (err) {
         if (loading) loading.hidden = true;
-        showToast('Failed to load churches', 'error');
+        showToast('Falha ao carregar igrejas', 'error');
     }
 }
 
@@ -1592,7 +1592,7 @@ async function loadAdminSuggestions() {
         });
     } catch (err) {
         if (loading) loading.hidden = true;
-        showToast('Failed to load suggestions', 'error');
+        showToast('Falha ao carregar sugestões', 'error');
     }
 }
 
@@ -1604,7 +1604,7 @@ document.addEventListener('change', (e) => {
 async function verifyChurch(id) {
     try {
         await api('/admin/churches/' + id + '/verify', { method: 'PUT' });
-        showToast('Church verified', 'success');
+        showToast('Igreja verificada', 'success');
         loadAdminChurches();
     } catch (err) { showToast(err.message, 'error'); }
 }
@@ -1615,7 +1615,7 @@ function openConfirmModal(churchId) {
     pendingDeleteChurchId = churchId;
     const modal = document.getElementById('confirm-modal');
     const msg = document.getElementById('confirm-message');
-    if (msg) msg.textContent = 'Are you sure you want to delete this church? This action cannot be undone.';
+    if (msg) msg.textContent = 'Tem certeza que deseja excluir esta igreja? Esta ação não pode ser desfeita.';
     if (modal) modal.hidden = false;
 
     const okBtn = document.getElementById('confirm-ok');
@@ -1623,7 +1623,7 @@ function openConfirmModal(churchId) {
         okBtn.onclick = async () => {
             try {
                 await api('/admin/churches/' + pendingDeleteChurchId, { method: 'DELETE' });
-                showToast('Church deleted', 'success');
+                showToast('Igreja removida', 'success');
                 loadAdminChurches();
             } catch (err) { showToast(err.message, 'error'); }
             closeConfirmModal();
@@ -1646,9 +1646,9 @@ function openReviewModal(suggestionId, action) {
 
     if (idInput) idInput.value = suggestionId;
     if (actionInput) actionInput.value = action;
-    if (title) title.textContent = action === 'approved' ? 'Approve Suggestion' : 'Reject Suggestion';
+    if (title) title.textContent = action === 'approved' ? 'Aprovar Sugestão' : 'Rejeitar Sugestão';
     if (submitBtn) {
-        submitBtn.textContent = action === 'approved' ? 'Approve' : 'Reject';
+        submitBtn.textContent = action === 'approved' ? 'Aprovar' : 'Rejeitar';
         submitBtn.className = action === 'approved' ? 'btn btn-success' : 'btn btn-danger';
     }
     if (modal) modal.hidden = false;

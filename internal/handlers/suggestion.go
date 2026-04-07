@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -109,7 +110,9 @@ func (h *SuggestionHandler) Create(c *gin.Context) {
 		if proposal.Denomination == "" {
 			proposal.Denomination = "Catholic"
 		}
-		h.DB.WithContext(ctx).Create(&proposal)
+		if err := h.DB.WithContext(ctx).Create(&proposal).Error; err != nil {
+			log.Printf("failed to save proposal for suggestion %d: %v", suggestion.ID, err)
+		}
 	}
 
 	// If auto-approved and has a proposal, create the church immediately
@@ -129,7 +132,9 @@ func (h *SuggestionHandler) Create(c *gin.Context) {
 		if church.Denomination == "" {
 			church.Denomination = "Catholic"
 		}
-		h.DB.WithContext(ctx).Create(&church)
+		if err := h.DB.WithContext(ctx).Create(&church).Error; err != nil {
+			log.Printf("failed to auto-create church from proposal: %v", err)
+		}
 	}
 
 	// Update reputation after new suggestion
