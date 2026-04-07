@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc
+
+      - name: Run tests
+        run: CGO_ENABLED=1 go test -race -coverprofile=coverage.out -covermode=atomic ./internal/...
+
+      - name: Check coverage
+        run: go tool cover -func=coverage.out
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v2.5.0
+
+      - name: Run golangci-lint
+        run: golangci-lint run ./...
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Build server
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/whereischurch ./cmd/server
+
+      - name: Build seed tool
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/seed ./cmd/seed
+
+      - name: Build seedgen tool
+        run: CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/seedgen ./cmd/seedgen
+
+      - name: Build Docker image
+        run: docker build -t where-is-church:test .

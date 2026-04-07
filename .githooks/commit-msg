@@ -1,0 +1,26 @@
+#!/bin/sh
+# .githooks/commit-msg
+# Validates commit messages follow Conventional Commits format
+# https://www.conventionalcommits.org/
+
+commit_msg_file="$1"
+commit_msg=$(head -1 "$commit_msg_file")
+
+# Conventional commit pattern: type(optional-scope): description
+pattern="^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .{1,}"
+
+if ! echo "$commit_msg" | grep -qE "$pattern"; then
+    echo "ERROR: Commit message does not follow Conventional Commits format."
+    echo ""
+    echo "Expected: <type>(<scope>): <description>"
+    echo ""
+    echo "Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert"
+    echo ""
+    echo "Examples:"
+    echo "  feat: add church tag system"
+    echo "  fix(search): correct Haversine distance calculation"
+    echo "  docs: update README with i18n instructions"
+    echo ""
+    echo "Your message: $commit_msg"
+    exit 1
+fi

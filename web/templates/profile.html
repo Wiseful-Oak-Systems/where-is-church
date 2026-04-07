@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile &mdash; Where is Church?</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="app-page"
+      data-user-id="{{.userID}}"
+      data-user-role="{{.userRole}}">
+
+  <!-- Navigation -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="navbar-brand">
+      <a href="/" class="navbar-logo">
+        <span aria-hidden="true">&#9962;</span> Where is Church?
+      </a>
+    </div>
+    <ul class="navbar-links" role="list">
+      <li><a href="/" class="navbar-link">Home</a></li>
+      <li><a href="/profile" class="navbar-link navbar-link--active" aria-current="page">Profile</a></li>
+      {{if or (eq .userRole "admin") (eq .userRole "community_manager")}}
+      <li><a href="/admin" class="navbar-link">Admin</a></li>
+      {{end}}
+      <li>
+        <button id="logout-btn" class="btn btn-outline btn-sm" type="button">Logout</button>
+      </li>
+    </ul>
+    <button class="navbar-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <div class="page-container">
+    <h1 class="page-title">My Profile</h1>
+
+    <!-- Loading -->
+    <div id="profile-loading" class="loading-state" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Loading profile&hellip;</p>
+    </div>
+
+    <div id="profile-section" data-init="profile">
+    </div>
+    <div id="profile-content" hidden>
+      <div class="profile-layout">
+
+        <!-- Left column: user info + edit form -->
+        <aside class="profile-col profile-col--info">
+
+          <!-- User info card -->
+          <div class="info-card profile-info-card">
+            <div class="profile-avatar" aria-hidden="true">
+              <span id="profile-avatar-initials"></span>
+            </div>
+            <div class="profile-meta">
+              <h2 id="profile-name" class="profile-name"></h2>
+              <p id="profile-email" class="profile-email"></p>
+              <span id="profile-denomination" class="denomination-badge"></span>
+              <span id="profile-role" class="role-badge"></span>
+            </div>
+          </div>
+
+          <!-- Edit profile form -->
+          <div class="info-card">
+            <h2 class="info-card-title">Edit Profile</h2>
+            <form id="edit-profile-form" novalidate>
+              <div class="form-group">
+                <label for="edit-name" class="form-label">Display name</label>
+                <input
+                  type="text"
+                  id="edit-name"
+                  name="name"
+                  class="form-input"
+                  required
+                >
+              </div>
+              <div class="form-group">
+                <label for="edit-denomination" class="form-label">Denomination</label>
+                <select id="edit-denomination" name="denomination" class="form-select">
+                  <option value="Catholic">Catholic</option>
+                  <option value="Orthodox">Orthodox</option>
+                  <option value="Protestant">Protestant</option>
+                  <option value="Anglican">Anglican</option>
+                  <option value="Evangelical">Evangelical</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div id="edit-profile-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+              <div id="edit-profile-success" class="form-success" role="status" aria-live="polite" hidden></div>
+              <button type="submit" class="btn btn-primary">Save changes</button>
+            </form>
+          </div>
+
+        </aside>
+
+        <!-- Right column: stats + history -->
+        <div class="profile-col profile-col--activity">
+
+          <!-- Check-in stats -->
+          <div class="info-card">
+            <h2 class="info-card-title">Attendance Stats</h2>
+            <div class="stats-grid" id="stats-grid">
+              <div class="stat-card">
+                <span id="stat-total" class="stat-value">-</span>
+                <span class="stat-label">Total visits</span>
+              </div>
+              <div class="stat-card">
+                <span id="stat-recent" class="stat-value">-</span>
+                <span class="stat-label">Last 30 days</span>
+              </div>
+            </div>
+
+            <div id="top-churches-section" hidden>
+              <h3 class="info-card-subtitle">Most visited</h3>
+              <ol id="top-churches-list" class="top-churches-list"></ol>
+            </div>
+          </div>
+
+          <!-- Recent check-ins -->
+          <div class="info-card">
+            <h2 class="info-card-title">Recent Check-ins</h2>
+            <ul id="recent-checkins" class="activity-list" aria-label="Recent check-ins"></ul>
+            <p id="checkins-empty" class="empty-state" hidden>
+              You haven&rsquo;t checked in anywhere yet. <a href="/">Find a church</a>
+            </p>
+          </div>
+
+          <!-- My suggestions -->
+          <div class="info-card">
+            <h2 class="info-card-title">My Suggestions</h2>
+            <ul id="my-suggestions" class="activity-list" aria-label="My suggestions"></ul>
+            <p id="suggestions-empty" class="empty-state" hidden>
+              You haven&rsquo;t submitted any suggestions yet.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

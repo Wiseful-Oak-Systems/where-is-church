@@ -1,0 +1,42 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - goconst
+    - gosec
+    - misspell
+    - unconvert
+    - unparam
+
+  settings:
+    govet:
+      check-shadowing: true
+    gosec:
+      excludes:
+        - G104
+    goconst:
+      min-len: 3
+      min-occurrences: 5
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+          - goconst
+          - unparam
+      - path: cmd/
+        linters:
+          - gosec
+          - errcheck
+      - path: internal/seeder/
+        linters:
+          - gosec
+          - misspell

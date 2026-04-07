@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Church Detail &mdash; Where is Church?</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="app-page"
+      data-church-id="{{.churchID}}"
+      data-user-id="{{.userID}}"
+      data-user-role="{{.userRole}}">
+
+  <!-- Navigation -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="navbar-brand">
+      <a href="/" class="navbar-logo">
+        <span aria-hidden="true">&#9962;</span> Where is Church?
+      </a>
+    </div>
+    <ul class="navbar-links" role="list">
+      <li><a href="/" class="navbar-link">Home</a></li>
+      <li><a href="/profile" class="navbar-link">Profile</a></li>
+      {{if or (eq .userRole "admin") (eq .userRole "community_manager")}}
+      <li><a href="/admin" class="navbar-link">Admin</a></li>
+      {{end}}
+      <li>
+        <button id="logout-btn" class="btn btn-outline btn-sm" type="button">Logout</button>
+      </li>
+    </ul>
+    <button class="navbar-toggle" id="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </nav>
+
+  <div class="page-container">
+
+    <!-- Back link -->
+    <nav class="breadcrumb" aria-label="Breadcrumb">
+      <a href="/" class="breadcrumb-link">
+        <span aria-hidden="true">&larr;</span> Back to map
+      </a>
+    </nav>
+
+    <!-- Loading state -->
+    <div id="church-loading" class="loading-state" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p>Loading church details&hellip;</p>
+    </div>
+
+    <!-- Error state -->
+    <div id="church-error" class="error-state" role="alert" hidden>
+      <p>Church not found or failed to load. <a href="/">Return to map</a></p>
+    </div>
+
+    <!-- Main content (populated by JS) -->
+    <div id="church-content" hidden>
+
+      <!-- Header -->
+      <header class="church-header">
+        <div class="church-header-info">
+          <h1 id="church-name" class="church-title"></h1>
+          <span id="church-denomination" class="denomination-badge"></span>
+          <div id="church-verified" class="verified-badge" hidden>
+            <span aria-hidden="true">&#x2713;</span> Verified
+          </div>
+        </div>
+        <button id="checkin-btn" class="btn btn-primary btn-checkin" type="button">
+          <span aria-hidden="true">&#x1F64F;</span> I was here!
+        </button>
+      </header>
+
+      <!-- Two-column layout -->
+      <div class="church-layout">
+
+        <!-- Left column: info + map -->
+        <section class="church-info-col">
+
+          <div class="info-card">
+            <h2 class="info-card-title">Location</h2>
+            <dl class="info-list">
+              <div class="info-row">
+                <dt class="info-label">Address</dt>
+                <dd id="church-address" class="info-value"></dd>
+              </div>
+              <div class="info-row" id="phone-row" hidden>
+                <dt class="info-label">Phone</dt>
+                <dd class="info-value">
+                  <a id="church-phone" href="#"></a>
+                </dd>
+              </div>
+              <div class="info-row" id="website-row" hidden>
+                <dt class="info-label">Website</dt>
+                <dd class="info-value">
+                  <a id="church-website" href="#" target="_blank" rel="noopener noreferrer"></a>
+                </dd>
+              </div>
+              <div class="info-row" id="description-row" hidden>
+                <dt class="info-label">About</dt>
+                <dd id="church-description" class="info-value"></dd>
+              </div>
+            </dl>
+          </div>
+
+          <!-- Mini map -->
+          <div class="info-card">
+            <h2 class="info-card-title">Map</h2>
+            <div id="church-map" class="church-map" aria-label="Church location map"></div>
+          </div>
+
+          <!-- Check-in button (duplicate for desktop layout) -->
+          <div class="checkin-panel info-card">
+            <h2 class="info-card-title">Attend this church?</h2>
+            <p class="checkin-hint">Record your visit to track your church attendance.</p>
+            <button id="checkin-btn-2" class="btn btn-primary btn-block btn-checkin" type="button">
+              <span aria-hidden="true">&#x1F64F;</span> I was here!
+            </button>
+            <div id="checkin-msg" class="form-success" role="status" aria-live="polite" hidden></div>
+            <div id="checkin-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+          </div>
+
+        </section>
+
+        <!-- Right column: schedule + check-ins + suggestions -->
+        <section class="church-detail-col">
+
+          <!-- Mass schedule -->
+          <div class="info-card" id="schedule-card">
+            <header class="info-card-header">
+              <h2 class="info-card-title">Mass Schedule</h2>
+            </header>
+
+            <div id="schedule-empty" class="empty-state" hidden>
+              <p>No schedule available yet.</p>
+            </div>
+
+            <div id="schedule-table-wrapper">
+              <table class="schedule-table" aria-label="Mass schedule by day">
+                <caption class="sr-only">Weekly Mass schedule</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Day</th>
+                    <th scope="col">Time</th>
+                    <th scope="col">Language</th>
+                    <th scope="col">Notes</th>
+                    {{if or (eq .userRole "admin") (eq .userRole "community_manager") (eq .userRole "moderator") (eq .userRole "church_owner")}}
+                    <th scope="col"><span class="sr-only">Actions</span></th>
+                    {{end}}
+                  </tr>
+                </thead>
+                <tbody id="schedule-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Admin / Moderator: add schedule -->
+          {{if or (eq .userRole "admin") (eq .userRole "community_manager") (eq .userRole "moderator") (eq .userRole "church_owner")}}
+          <div class="info-card" id="add-schedule-card">
+            <h2 class="info-card-title">Add Mass Schedule</h2>
+            <form id="add-schedule-form" novalidate>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="sched-day" class="form-label">Day</label>
+                  <select id="sched-day" name="day_of_week" class="form-select" required>
+                    <option value="0">Sunday</option>
+                    <option value="1">Monday</option>
+                    <option value="2">Tuesday</option>
+                    <option value="3">Wednesday</option>
+                    <option value="4">Thursday</option>
+                    <option value="5">Friday</option>
+                    <option value="6">Saturday</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="sched-time" class="form-label">Start time</label>
+                  <input type="time" id="sched-time" name="start_time" class="form-input" required>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="sched-lang" class="form-label">Language</label>
+                  <input type="text" id="sched-lang" name="language" class="form-input"
+                         value="English" placeholder="English">
+                </div>
+                <div class="form-group">
+                  <label for="sched-notes" class="form-label">Notes <span class="form-hint">(optional)</span></label>
+                  <input type="text" id="sched-notes" name="notes" class="form-input"
+                         placeholder="e.g. Latin Mass">
+                </div>
+              </div>
+              <div id="add-sched-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+              <button type="submit" class="btn btn-primary">Add to schedule</button>
+            </form>
+          </div>
+
+          <!-- Admin / Moderator: edit church -->
+          <div class="info-card" id="edit-church-card">
+            <h2 class="info-card-title">Edit Church Details</h2>
+            <form id="edit-church-form" novalidate>
+              <div class="form-group">
+                <label for="edit-name" class="form-label">Name</label>
+                <input type="text" id="edit-name" name="name" class="form-input" required>
+              </div>
+              <div class="form-group">
+                <label for="edit-denomination" class="form-label">Denomination</label>
+                <select id="edit-denomination" name="denomination" class="form-select">
+                  <option value="Catholic">Catholic</option>
+                  <option value="Orthodox">Orthodox</option>
+                  <option value="Protestant">Protestant</option>
+                  <option value="Anglican">Anglican</option>
+                  <option value="Evangelical">Evangelical</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="edit-address" class="form-label">Address</label>
+                <input type="text" id="edit-address" name="address" class="form-input">
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="edit-phone" class="form-label">Phone</label>
+                  <input type="tel" id="edit-phone" name="phone" class="form-input">
+                </div>
+                <div class="form-group">
+                  <label for="edit-website" class="form-label">Website</label>
+                  <input type="url" id="edit-website" name="website" class="form-input"
+                         placeholder="https://">
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="edit-description" class="form-label">Description</label>
+                <textarea id="edit-description" name="description" class="form-textarea" rows="3"></textarea>
+              </div>
+              <div class="form-group form-check">
+                <label class="form-label">
+                  <input type="checkbox" id="edit-verified" name="verified" class="form-checkbox">
+                  Verified church
+                </label>
+              </div>
+              <div id="edit-church-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+              <div id="edit-church-success" class="form-success" role="status" aria-live="polite" hidden></div>
+              <button type="submit" class="btn btn-primary">Save changes</button>
+            </form>
+          </div>
+          {{end}}
+
+          <!-- Recent check-ins -->
+          <div class="info-card">
+            <h2 class="info-card-title">Recent Visitors</h2>
+            <ul id="checkin-list" class="checkin-list" aria-label="Recent check-ins"></ul>
+            <p id="checkin-list-empty" class="empty-state" hidden>No check-ins yet &mdash; be the first!</p>
+          </div>
+
+          <!-- Suggestion form -->
+          <div class="info-card">
+            <h2 class="info-card-title">Suggest a Correction</h2>
+            <form id="church-suggestion-form" novalidate>
+              <div class="form-group">
+                <label for="church-sugg-type" class="form-label">Type</label>
+                <select id="church-sugg-type" name="type" class="form-select">
+                  <option value="edit_church">Edit church info</option>
+                  <option value="schedule">Schedule update</option>
+                  <option value="general">General feedback</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="church-sugg-content" class="form-label">Details</label>
+                <textarea
+                  id="church-sugg-content"
+                  name="content"
+                  class="form-textarea"
+                  rows="4"
+                  placeholder="Describe what needs to be corrected or updated&hellip;"
+                  required
+                ></textarea>
+              </div>
+              <div id="church-sugg-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+              <div id="church-sugg-success" class="form-success" role="status" aria-live="polite" hidden></div>
+              <button type="submit" class="btn btn-outline">Submit suggestion</button>
+            </form>
+          </div>
+
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

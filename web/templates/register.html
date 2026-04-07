@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Criar Conta &mdash; Where is Church?</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="auth-page">
+
+  <main class="auth-container">
+    <div class="auth-card">
+      <header class="auth-header">
+        <span class="auth-icon" aria-hidden="true">&#9962;</span>
+        <h1 class="auth-title">Where is Church?</h1>
+        <p class="auth-subtitle">Crie sua conta gratuita</p>
+      </header>
+
+      <form id="register-form" class="auth-form" novalidate>
+        <div class="form-group">
+          <label for="name" class="form-label">Nome completo</label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            class="form-input"
+            placeholder="Seu nome"
+            autocomplete="name"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="email" class="form-label">E-mail</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            class="form-input"
+            placeholder="voce@exemplo.com"
+            autocomplete="email"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="password" class="form-label">Senha</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="form-input"
+            placeholder="Mínimo 8 caracteres"
+            autocomplete="new-password"
+            minlength="8"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="denomination" class="form-label">Denominação</label>
+          <select id="denomination" name="denomination" class="form-select">
+            <option value="Catholic" selected>Católica</option>
+            <option value="Orthodox">Ortodoxa</option>
+            <option value="Protestant">Protestante</option>
+            <option value="Anglican">Anglicana</option>
+            <option value="Evangelical">Evangélica</option>
+            <option value="Other">Outra</option>
+          </select>
+        </div>
+
+        <div id="register-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+
+        <button type="submit" class="btn btn-primary btn-block">Criar conta</button>
+      </form>
+
+      <footer class="auth-footer">
+        <p>Já tem uma conta? <a href="/login" class="auth-link">Entre aqui</a></p>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var form  = document.getElementById('register-form');
+      var errEl = document.getElementById('register-error');
+
+      function showError(msg) {
+        errEl.textContent = msg;
+        errEl.hidden = false;
+      }
+
+      function clearError() {
+        errEl.textContent = '';
+        errEl.hidden = true;
+      }
+
+      function register(e) {
+        e.preventDefault();
+        clearError();
+
+        var name         = document.getElementById('name').value.trim();
+        var email        = document.getElementById('email').value.trim();
+        var password     = document.getElementById('password').value;
+        var denomination = document.getElementById('denomination').value;
+
+        if (!name) {
+          showError('Preencha seu nome.');
+          return;
+        }
+        if (!email) {
+          showError('Preencha seu e-mail.');
+          return;
+        }
+        if (password.length < 8) {
+          showError('A senha deve ter pelo menos 8 caracteres.');
+          return;
+        }
+
+        var btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Criando conta\u2026';
+
+        fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            name: name,
+            email: email,
+            password: password,
+            denomination: denomination
+          })
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data };
+            });
+          })
+          .then(function (result) {
+            if (!result.ok) {
+              throw new Error(result.data.error || 'Falha no cadastro. Tente novamente.');
+            }
+            window.location.href = '/';
+          })
+          .catch(function (err) {
+            showError(err.message);
+            btn.disabled = false;
+            btn.textContent = 'Criar conta';
+          });
+      }
+
+      form.addEventListener('submit', register);
+    })();
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrar &mdash; Where is Church?</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body class="auth-page">
+
+  <main class="auth-container">
+    <div class="auth-card">
+      <header class="auth-header">
+        <span class="auth-icon" aria-hidden="true">&#9962;</span>
+        <h1 class="auth-title">Where is Church?</h1>
+        <p class="auth-subtitle">Entre para encontrar a Missa perto de você</p>
+      </header>
+
+      <form id="login-form" class="auth-form" novalidate>
+        <div class="form-group">
+          <label for="email" class="form-label">E-mail</label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            class="form-input"
+            placeholder="voce@exemplo.com"
+            autocomplete="email"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="password" class="form-label">Senha</label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="form-input"
+            placeholder="Sua senha"
+            autocomplete="current-password"
+            required
+          >
+        </div>
+
+        <div id="login-error" class="form-error" role="alert" aria-live="polite" hidden></div>
+
+        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+      </form>
+
+      <footer class="auth-footer">
+        <p>Não tem uma conta? <a href="/register" class="auth-link">Crie uma</a></p>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var form  = document.getElementById('login-form');
+      var errEl = document.getElementById('login-error');
+
+      function showError(msg) {
+        errEl.textContent = msg;
+        errEl.hidden = false;
+      }
+
+      function clearError() {
+        errEl.textContent = '';
+        errEl.hidden = true;
+      }
+
+      function login(e) {
+        e.preventDefault();
+        clearError();
+
+        var email    = document.getElementById('email').value.trim();
+        var password = document.getElementById('password').value;
+
+        if (!email || !password) {
+          showError('Preencha seu e-mail e senha.');
+          return;
+        }
+
+        var btn = form.querySelector('button[type="submit"]');
+        btn.disabled = true;
+        btn.textContent = 'Entrando\u2026';
+
+        fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ email: email, password: password })
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data };
+            });
+          })
+          .then(function (result) {
+            if (!result.ok) {
+              throw new Error(result.data.error || 'Falha no login. Tente novamente.');
+            }
+            window.location.href = '/';
+          })
+          .catch(function (err) {
+            showError(err.message);
+            btn.disabled = false;
+            btn.textContent = 'Entrar';
+          });
+      }
+
+      form.addEventListener('submit', login);
+    })();
+  </script>
+
+</body>
+</html>
